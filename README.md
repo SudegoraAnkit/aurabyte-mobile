@@ -57,6 +57,48 @@ Its **primary purpose** is to provide a fully offline, zero-friction, highly cus
 
 ---
 
+## 📂 Repository Structure
+
+HabitEngine is structured around Hexagonal Architecture (Ports and Adapters), separating our domain logic, port definitions, and infrastructure adapters:
+
+```
+habitengine/
+├── docs/                               # Developer documentation suite
+│   ├── 01_project_overview.md          # Motivations & core value loop
+│   ├── 02_requirements_use_cases.md    # Requirements & user flows
+│   ├── 03_system_architecture.md       # Hexagonal Architecture layout
+│   ├── 04_data_model_apis.md           # SQLite schemas & backup payload schemas
+│   ├── 05_implementation_details.md    # Compose particles, localizations, cadence
+│   ├── 06_challenges_solutions.md      # In-memory aggregations & custom serializations
+│   ├── 07_incident_postmortems.md      # Postmortems (Gradle, Keystores, Secrets Plugin)
+│   └── 08_personal_learnings.md        # Technical developer learnings
+│
+├── app/src/main/java/com/example/      # Main application source
+│   ├── core/                           # Pure Business Domain Layer
+│   │   ├── domain/                     # Entities & business rules (Models.kt)
+│   │   └── ports/                      # Decouplers (StoragePort.kt interface)
+│   │
+│   ├── infrastructure/adapters/        # Framework & Infrastructure Adapters
+│   │   ├── database/                   # Room SQLite persistence (RoomStorageAdapter.kt)
+│   │   └── ui/                         # MVVM Jetpack Compose interface (DashboardScreen.kt)
+│   │
+│   └── ui/theme/                       # Presets for application color & typography
+│
+├── gradle/                             # Gradle Wrapper properties & wrapper files
+├── build.gradle.kts                    # Root build setup
+├── settings.gradle.kts                 # Project dependency repositories
+├── my-upload-key.jks                   # Play Store production upload key
+└── .env                                # Key secrets configuration for compiling
+```
+
+- **[Core Domain Models](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/domain/Models.kt)**: Houses the central definitions of habit loops (`Habit`, `LifeDomain`, `Cadence`) and focus logs (`ActivityLog`).
+- **[Storage Port Interface](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/ports/StoragePort.kt)**: Decoupled boundary declaring how the UI fetches data and updates storage.
+- **[Room SQLite Adapter](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/database/RoomStorageAdapter.kt)**: SQLite implementation of the StoragePort using Jetpack Room.
+- **[ViewModel State Controller](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/HabitViewModel.kt)**: Combines DB Flow updates and theme preferences into a single UI State stream.
+- **[Compose UI Views](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/DashboardScreen.kt)**: Draws the user interface, custom sparklines, regional flags dictionary, and canvas sparkles.
+
+---
+
 ## 🚀 Getting Started
 
 ### 📋 Prerequisites
