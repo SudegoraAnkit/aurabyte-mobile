@@ -1,5 +1,6 @@
 package com.example.infrastructure.adapters.ui
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.domain.Cadence
@@ -10,8 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -20,13 +21,15 @@ import java.util.UUID
 
 import com.example.core.domain.ActivityCategory
 import com.example.core.domain.ActivityLog
+import com.example.infrastructure.adapters.notifications.NotificationScheduler
 import com.example.infrastructure.adapters.database.LogEntity
 import org.json.JSONArray
 import org.json.JSONObject
 
 enum class ThemeMode {
     CYBERPUNK,
-    SUNSET
+    SUNSET,
+    MONOCHROME
 }
 
 data class CelebrationState(
@@ -45,33 +48,55 @@ data class MainUiState(
     val themeMode: ThemeMode = ThemeMode.CYBERPUNK,
     val isLoading: Boolean = true,
     val celebration: CelebrationState? = null,
-    val activityLogs: List<ActivityLog> = emptyList()
+    val activityLogs: List<ActivityLog> = emptyList(),
+    val activeProfileId: String = "main",
+    val unlockedThemes: Set<ThemeMode> = setOf(ThemeMode.CYBERPUNK)
 )
 
 class HabitViewModel(
-    private val storagePort: StoragePort
+    private val storagePort: StoragePort,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _selectedDate = MutableStateFlow(getTodayDateString())
-    private val _themeMode = MutableStateFlow(ThemeMode.CYBERPUNK)
+    private val _selectedDate = savedStateHandle.getStateFlow("selectedDate", getTodayDateString())
+    private val _themeMode = savedStateHandle.getStateFlow("themeMode", ThemeMode.CYBERPUNK)
+    private val _activeProfileId = savedStateHandle.getStateFlow("activeProfileId", "main")
     private val _celebration = MutableStateFlow<CelebrationState?>(null)
 
-    // Reactive stream combining custom theme preference, dates, and ports state
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<MainUiState> = combine(
-        storagePort.loadTrackerState(),
+        _activeProfileId.flatMapLatest { profileId ->
+            storagePort.loadTrackerStateForProfile(profileId)
+        },
         storagePort.loadActivityLogs(),
         _selectedDate,
         _themeMode,
         _celebration
     ) { trackerState, activities, date, theme, celeb ->
+        val profile = _activeProfileId.value
+        val unlocked = mutableSetOf(ThemeMode.CYBERPUNK)
+        trackerState.habits.forEach { habit ->
+            val stats = habit.getStreakStats(trackerState.logs, date)
+            if (stats.currentStreak >= 7 || stats.longestStreak >= 7) {
+                unlocked.add(ThemeMode.SUNSET)
+            }
+            if (stats.currentStreak >= 30 || stats.longestStreak >= 30) {
+                unlocked.add(ThemeMode.MONOCHROME)
+            }
+        }
+
+        val resolvedTheme = if (theme in unlocked) theme else ThemeMode.CYBERPUNK
+
         MainUiState(
             habits = trackerState.habits,
             logs = trackerState.logs,
             selectedDate = date,
-            themeMode = theme,
+            themeMode = resolvedTheme,
             isLoading = false,
             celebration = celeb,
-            activityLogs = activities
+            activityLogs = activities,
+            activeProfileId = profile,
+            unlockedThemes = unlocked
         )
     }.stateIn(
         scope = viewModelScope,
@@ -80,21 +105,40 @@ class HabitViewModel(
     )
 
     fun selectDate(dateString: String) {
-        _selectedDate.value = dateString
+        savedStateHandle["selectedDate"] = dateString
+    }
+
+    fun selectProfile(profileId: String) {
+        savedStateHandle["activeProfileId"] = profileId
     }
 
     fun toggleTheme() {
-        _themeMode.update { if (it == ThemeMode.CYBERPUNK) ThemeMode.SUNSET else ThemeMode.CYBERPUNK }
+        val nextTheme = when (_themeMode.value) {
+            ThemeMode.CYBERPUNK -> ThemeMode.SUNSET
+            ThemeMode.SUNSET -> ThemeMode.MONOCHROME
+            ThemeMode.MONOCHROME -> ThemeMode.CYBERPUNK
+        }
+        savedStateHandle["themeMode"] = nextTheme
+    }
+
+    fun setTheme(theme: ThemeMode) {
+        savedStateHandle["themeMode"] = theme
     }
 
     fun createHabit(
+        context: android.content.Context,
         domain: LifeDomain,
         cadence: Cadence,
         cueText: String,
         routineText: String,
         rewardText: String,
         notes: String = "",
-        isBad: Boolean = false
+        isBad: Boolean = false,
+        targetMilestone: Int = 0,
+        restartOnMiss: Boolean = false,
+        reminderHour: Int? = null,
+        reminderMinute: Int? = null,
+        profileId: String = "main"
     ) {
         viewModelScope.launch {
             val habit = Habit(
@@ -105,13 +149,22 @@ class HabitViewModel(
                 routineText = routineText.trim(),
                 rewardText = rewardText.trim(),
                 notes = notes.trim(),
-                isBad = isBad
+                isBad = isBad,
+                targetMilestone = targetMilestone,
+                restartOnMiss = restartOnMiss,
+                reminderHour = reminderHour,
+                reminderMinute = reminderMinute,
+                profileId = profileId
             )
             storagePort.saveHabit(habit)
+            if (reminderHour != null && reminderMinute != null) {
+                NotificationScheduler.scheduleHabitReminder(context.applicationContext, habit)
+            }
         }
     }
 
     fun updateHabit(
+        context: android.content.Context,
         habitId: String,
         domain: LifeDomain,
         cadence: Cadence,
@@ -120,7 +173,12 @@ class HabitViewModel(
         rewardText: String,
         createdAt: Long,
         notes: String = "",
-        isBad: Boolean = false
+        isBad: Boolean = false,
+        targetMilestone: Int = 0,
+        restartOnMiss: Boolean = false,
+        reminderHour: Int? = null,
+        reminderMinute: Int? = null,
+        profileId: String = "main"
     ) {
         viewModelScope.launch {
             val habit = Habit(
@@ -132,9 +190,18 @@ class HabitViewModel(
                 rewardText = rewardText.trim(),
                 createdAt = createdAt,
                 notes = notes.trim(),
-                isBad = isBad
+                isBad = isBad,
+                targetMilestone = targetMilestone,
+                restartOnMiss = restartOnMiss,
+                reminderHour = reminderHour,
+                reminderMinute = reminderMinute,
+                profileId = profileId
             )
             storagePort.saveHabit(habit)
+            NotificationScheduler.cancelHabitReminder(context.applicationContext, habitId)
+            if (reminderHour != null && reminderMinute != null) {
+                NotificationScheduler.scheduleHabitReminder(context.applicationContext, habit)
+            }
         }
     }
 
@@ -166,9 +233,7 @@ class HabitViewModel(
             val date = _selectedDate.value
             storagePort.toggleLogEntry(date, habitId, currentStatus)
 
-            // If the habit is now completed, we trigger the Dopamine Reward celebration
             if (!currentStatus) {
-                // Fetch habit in current state list
                 val state = uiState.value
                 val habit = state.habits.find { it.id == habitId }
                 if (habit != null) {
@@ -188,9 +253,10 @@ class HabitViewModel(
         _celebration.value = null
     }
 
-    fun deleteHabit(habitId: String) {
+    fun deleteHabit(context: android.content.Context, habitId: String) {
         viewModelScope.launch {
             storagePort.deleteHabit(habitId)
+            NotificationScheduler.cancelHabitReminder(context.applicationContext, habitId)
         }
     }
 
@@ -199,7 +265,6 @@ class HabitViewModel(
             val state = uiState.value
             val backupObj = JSONObject()
             
-            // 1. Habits
             val habitsArr = JSONArray()
             state.habits.forEach { habit ->
                 val habitObj = JSONObject().apply {
@@ -212,12 +277,16 @@ class HabitViewModel(
                     put("createdAt", habit.createdAt)
                     put("notes", habit.notes)
                     put("isBad", habit.isBad)
+                    put("targetMilestone", habit.targetMilestone)
+                    put("restartOnMiss", habit.restartOnMiss)
+                    if (habit.reminderHour != null) put("reminderHour", habit.reminderHour)
+                    if (habit.reminderMinute != null) put("reminderMinute", habit.reminderMinute)
+                    put("profileId", habit.profileId)
                 }
                 habitsArr.put(habitObj)
             }
             backupObj.put("habits", habitsArr)
             
-            // 2. Logs
             val logsObj = JSONObject()
             state.logs.forEach { dateKey, habitMap ->
                 val habitMapObj = JSONObject()
@@ -228,7 +297,6 @@ class HabitViewModel(
             }
             backupObj.put("logs", logsObj)
             
-            // 3. Activity Logs
             val activitiesArr = JSONArray()
             state.activityLogs.forEach { log ->
                 val logObj = JSONObject().apply {
@@ -253,7 +321,6 @@ class HabitViewModel(
             try {
                 val backupObj = JSONObject(jsonString)
                 
-                // Parse habits
                 val habitsList = mutableListOf<Habit>()
                 if (backupObj.has("habits")) {
                     val habitsArr = backupObj.getJSONArray("habits")
@@ -269,13 +336,17 @@ class HabitViewModel(
                                 rewardText = obj.optString("rewardText", ""),
                                 createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
                                 notes = obj.optString("notes", ""),
-                                isBad = obj.optBoolean("isBad", false)
+                                isBad = obj.optBoolean("isBad", false),
+                                targetMilestone = obj.optInt("targetMilestone", 0),
+                                restartOnMiss = obj.optBoolean("restartOnMiss", false),
+                                reminderHour = if (obj.has("reminderHour")) obj.getInt("reminderHour") else null,
+                                reminderMinute = if (obj.has("reminderMinute")) obj.getInt("reminderMinute") else null,
+                                profileId = obj.optString("profileId", "main")
                             )
                         )
                     }
                 }
                 
-                // Parse logs
                 val parsedLogs = mutableListOf<LogEntity>()
                 if (backupObj.has("logs")) {
                     val logsObj = backupObj.getJSONObject("logs")
@@ -298,7 +369,6 @@ class HabitViewModel(
                     }
                 }
                 
-                // Parse activity logs
                 val parsedActivities = mutableListOf<ActivityLog>()
                 if (backupObj.has("activityLogs")) {
                     val activitiesArr = backupObj.getJSONArray("activityLogs")
@@ -316,7 +386,6 @@ class HabitViewModel(
                     }
                 }
                 
-                // Invoke port restore helper
                 storagePort.restoreBackup(habitsList, parsedLogs, parsedActivities)
                 callback(true)
             } catch (e: Exception) {

@@ -44,12 +44,55 @@ class RoomStorageAdapter(
                     rewardText = entity.rewardText,
                     createdAt = entity.createdAt,
                     notes = entity.notes,
-                    isBad = entity.isBad
+                    isBad = entity.isBad,
+                    targetMilestone = entity.targetMilestone,
+                    restartOnMiss = entity.restartOnMiss,
+                    reminderHour = entity.reminderHour,
+                    reminderMinute = entity.reminderMinute,
+                    profileId = entity.profileId
                 )
             }
 
-            // Map List<LogEntity> to Map<String, Map<String, Boolean>>
-            // Group by date (YYYY-MM-DD), then associate habitId -> completed boolean
+            val logsMap = entityLogs.groupBy { it.date }.mapValues { entry ->
+                entry.value.associate { it.habitId to it.completed }
+            }
+
+            TrackerState(habitsList, logsMap)
+        }
+    }
+
+    override fun loadTrackerStateForProfile(profileId: String): Flow<TrackerState> {
+        return combine(
+            habitDao.getHabitsByProfileFlow(profileId),
+            logDao.getAllLogsFlow()
+        ) { entityHabits, entityLogs ->
+            val habitsList = entityHabits.map { entity ->
+                Habit(
+                    id = entity.id,
+                    domain = try {
+                        LifeDomain.valueOf(entity.domain)
+                    } catch (e: Exception) {
+                        LifeDomain.PERSONAL
+                    },
+                    cadence = try {
+                        Cadence.valueOf(entity.cadence)
+                    } catch (e: Exception) {
+                        Cadence.DAILY
+                    },
+                    cueText = entity.cueText,
+                    routineText = entity.routineText,
+                    rewardText = entity.rewardText,
+                    createdAt = entity.createdAt,
+                    notes = entity.notes,
+                    isBad = entity.isBad,
+                    targetMilestone = entity.targetMilestone,
+                    restartOnMiss = entity.restartOnMiss,
+                    reminderHour = entity.reminderHour,
+                    reminderMinute = entity.reminderMinute,
+                    profileId = entity.profileId
+                )
+            }
+
             val logsMap = entityLogs.groupBy { it.date }.mapValues { entry ->
                 entry.value.associate { it.habitId to it.completed }
             }
@@ -68,13 +111,17 @@ class RoomStorageAdapter(
             rewardText = habit.rewardText,
             createdAt = habit.createdAt,
             notes = habit.notes,
-            isBad = habit.isBad
+            isBad = habit.isBad,
+            targetMilestone = habit.targetMilestone,
+            restartOnMiss = habit.restartOnMiss,
+            reminderHour = habit.reminderHour,
+            reminderMinute = habit.reminderMinute,
+            profileId = habit.profileId
         )
         habitDao.insertHabit(entity)
     }
 
     override suspend fun toggleLogEntry(date: String, habitId: String, currentStatus: Boolean) = withContext(Dispatchers.IO) {
-        // Safe toggle logic: currentStatus is passed in, toggle state is calculated and persisted
         val nextStatus = !currentStatus
         val entity = LogEntity(
             date = date,
@@ -127,12 +174,10 @@ class RoomStorageAdapter(
         logs: List<LogEntity>,
         activityLogs: List<ActivityLog>
     ) = withContext(Dispatchers.IO) {
-        // Clear old state completely
         database.habitDao().clearAllHabits()
         database.logDao().clearAllLogs()
         database.activityLogDao().clearAllActivityLogs()
 
-        // Insert new habits
         habits.forEach { habit ->
             val entity = HabitEntity(
                 id = habit.id,
@@ -143,17 +188,20 @@ class RoomStorageAdapter(
                 rewardText = habit.rewardText,
                 createdAt = habit.createdAt,
                 notes = habit.notes,
-                isBad = habit.isBad
+                isBad = habit.isBad,
+                targetMilestone = habit.targetMilestone,
+                restartOnMiss = habit.restartOnMiss,
+                reminderHour = habit.reminderHour,
+                reminderMinute = habit.reminderMinute,
+                profileId = habit.profileId
             )
             database.habitDao().insertHabit(entity)
         }
 
-        // Insert logs
         logs.forEach { log ->
             database.logDao().insertLog(log)
         }
 
-        // Insert activity logs
         activityLogs.forEach { log ->
             val entity = ActivityLogEntity(
                 id = log.id,

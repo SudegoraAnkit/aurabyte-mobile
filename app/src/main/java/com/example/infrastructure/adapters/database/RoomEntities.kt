@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "habits")
 data class HabitEntity(
-    val id: String, // primary key
+    val id: String,
     val domain: String,
     val cadence: String,
     val cueText: String,
@@ -19,9 +19,13 @@ data class HabitEntity(
     val rewardText: String,
     val createdAt: Long,
     val notes: String = "",
-    val isBad: Boolean = false
+    val isBad: Boolean = false,
+    val targetMilestone: Int = 0,
+    val restartOnMiss: Boolean = false,
+    val reminderHour: Int? = null,
+    val reminderMinute: Int? = null,
+    val profileId: String = "main"
 ) {
-    // Making id primary key
     @androidx.room.PrimaryKey
     var primaryKeyId: String = id
 }
@@ -38,7 +42,7 @@ data class ActivityLogEntity(
     @androidx.room.PrimaryKey
     val id: String,
     val description: String,
-    val category: String, // "IMPORTANT", "TIME_WASTER", "NEUTRAL"
+    val category: String,
     val timestamp: Long,
     val durationMinutes: Int
 )
@@ -47,6 +51,9 @@ data class ActivityLogEntity(
 interface HabitDao {
     @Query("SELECT * FROM habits ORDER BY createdAt DESC")
     fun getAllHabitsFlow(): Flow<List<HabitEntity>>
+
+    @Query("SELECT * FROM habits WHERE profileId = :profileId ORDER BY createdAt DESC")
+    fun getHabitsByProfileFlow(profileId: String): Flow<List<HabitEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHabit(habit: HabitEntity)
@@ -88,7 +95,7 @@ interface ActivityLogDao {
     suspend fun clearAllActivityLogs()
 }
 
-@Database(entities = [HabitEntity::class, LogEntity::class, ActivityLogEntity::class], version = 3, exportSchema = false)
+@Database(entities = [HabitEntity::class, LogEntity::class, ActivityLogEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
     abstract fun logDao(): LogDao

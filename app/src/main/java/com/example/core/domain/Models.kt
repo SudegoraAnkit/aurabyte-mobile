@@ -1,6 +1,10 @@
 package com.example.core.domain
 
-import java.util.Calendar
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.ZoneId
 
 enum class LifeDomain {
     HEALTH,
@@ -32,6 +36,14 @@ enum class Cadence {
         }
 }
 
+data class StreakStats(
+    val currentStreak: Int,
+    val longestStreak: Int,
+    val milestoneReached: Boolean,
+    val completionPercentage: Int,
+    val historyGrid: List<Boolean>
+)
+
 data class Habit(
     val id: String,
     val domain: LifeDomain,
@@ -41,8 +53,86 @@ data class Habit(
     val rewardText: String,
     val createdAt: Long = System.currentTimeMillis(),
     val notes: String = "",
-    val isBad: Boolean = false
-)
+    val isBad: Boolean = false,
+    val targetMilestone: Int = 0,
+    val restartOnMiss: Boolean = false,
+    val reminderHour: Int? = null,
+    val reminderMinute: Int? = null,
+    val profileId: String = "main"
+) {
+    fun getStreakStats(
+        logs: Map<String, Map<String, Boolean>>,
+        todayStr: String = LocalDate.now(ZoneId.systemDefault()).toString()
+    ): StreakStats {
+        val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+        val startLocalDate = try {
+            Instant.ofEpochMilli(createdAt)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+        } catch (e: Exception) {
+            LocalDate.now(ZoneId.systemDefault()).minusDays(30)
+        }
+        
+        val today = try {
+            LocalDate.parse(todayStr, formatter)
+        } catch (e: Exception) {
+            LocalDate.now(ZoneId.systemDefault())
+        }
+
+        val dateList = mutableListOf<LocalDate>()
+        var curr = startLocalDate
+        while (!curr.isAfter(today)) {
+            if (cadence.isApplicableOn(curr.toString())) {
+                dateList.add(curr)
+            }
+            curr = curr.plusDays(1)
+        }
+
+        var currentRun = 0
+        var longestRun = 0
+        var totalCompletions = 0
+        val totalOpportunities = dateList.size
+
+        dateList.forEach { date ->
+            val dateStr = date.toString()
+            val isCompleted = logs[dateStr]?.get(id) == true
+            
+            if (isCompleted) {
+                currentRun++
+                totalCompletions++
+                if (currentRun > longestRun) {
+                    longestRun = currentRun
+                }
+            } else {
+                val isToday = date.isEqual(today)
+                if (restartOnMiss) {
+                    if (!isToday) {
+                        currentRun = 0
+                    }
+                }
+            }
+        }
+
+        val gridList = mutableListOf<Boolean>()
+        for (i in 27 downTo 0) {
+            val d = today.minusDays(i.toLong())
+            val dStr = d.toString()
+            val completed = logs[dStr]?.get(id) == true
+            gridList.add(completed)
+        }
+
+        val percent = if (totalOpportunities == 0) 0 else ((totalCompletions.toFloat() / totalOpportunities) * 100).toInt()
+        val milestoneReached = targetMilestone > 0 && (if (restartOnMiss) currentRun else totalCompletions) >= targetMilestone
+
+        return StreakStats(
+            currentStreak = currentRun,
+            longestStreak = longestRun,
+            milestoneReached = milestoneReached,
+            completionPercentage = percent,
+            historyGrid = gridList
+        )
+    }
+}
 
 enum class ActivityCategory {
     IMPORTANT,
@@ -66,52 +156,32 @@ data class ActivityLog(
 )
 
 data class DayLog(
-    val date: String, // format YYYY-MM-DD
-    val completions: Map<String, Boolean> // HabitId -> CompletionStatus
+    val date: String,
+    val completions: Map<String, Boolean>
 )
 
 data class TrackerState(
     val habits: List<Habit> = emptyList(),
-    val logs: Map<String, Map<String, Boolean>> = emptyMap() // date -> HabitId -> CompletionStatus
+    val logs: Map<String, Map<String, Boolean>> = emptyMap()
 )
 
-/**
- * Analytical checks (the Dynamic Cadence Filter) isolated in the Domain Layer.
- * Determines if a habit is historically active/tracked or selectable on the given date.
- */
 fun Cadence.isApplicableOn(dateStr: String): Boolean {
-    val dateParts = dateStr.split("-")
-    if (dateParts.size != 3) return true // default fallback
-    
     return try {
-        val year = dateParts[0].toInt()
-        val month = dateParts[1].toInt() - 1 // Calendar is 0-indexed for months
-        val day = dateParts[2].toInt()
-        
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.YEAR, year)
-            set(Calendar.MONTH, month)
-            set(Calendar.DAY_OF_MONTH, day)
-        }
-        
-        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-        
+        val localDate = LocalDate.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE)
+        val dayOfWeek = localDate.dayOfWeek
         when (this) {
             Cadence.DAILY -> true
             Cadence.WEEKDAYS -> {
-                dayOfWeek != Calendar.SATURDAY && dayOfWeek != Calendar.SUNDAY
+                dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
             }
             Cadence.WEEKENDS -> {
-                dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY
+                dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY
             }
             Cadence.MONTHLY -> {
-                // Applicable on the 1st day of the month for visual clean cycle,
-                // or we can allow the first week as selectable. Let's make it on day 1
-                // or simply day of month == 1 as requested, keeping business logic clean.
-                calendar.get(Calendar.DAY_OF_MONTH) == 1
+                localDate.dayOfMonth == 1
             }
         }
     } catch (e: Exception) {
-        true // fallback safe default
+        true
     }
 }
