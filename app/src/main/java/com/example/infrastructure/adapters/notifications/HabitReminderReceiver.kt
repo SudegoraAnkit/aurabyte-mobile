@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.room.Room
 import com.example.MainActivity
 import com.example.core.domain.isApplicableOn
+import com.example.R
 import com.example.infrastructure.adapters.database.AppDatabase
 import com.example.infrastructure.adapters.database.RoomStorageAdapter
 import kotlinx.coroutines.CoroutineScope
@@ -24,8 +25,10 @@ import java.util.Locale
 
 class HabitReminderReceiver : BroadcastReceiver() {
 
-    private const val CHANNEL_ID = "habit_reminders_channel"
-    private const val CHANNEL_NAME = "Habit Reminders"
+    companion object {
+        private const val CHANNEL_ID = "habit_reminders_channel"
+        private const val CHANNEL_NAME = "Habit Reminders"
+    }
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
@@ -132,7 +135,7 @@ class HabitReminderReceiver : BroadcastReceiver() {
         val pendingIntent = PendingIntent.getActivity(context, id, intent, flags)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setSmallIcon(R.drawable.ic_notification_icon)
             .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

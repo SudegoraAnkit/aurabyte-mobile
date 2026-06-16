@@ -58,6 +58,8 @@ import com.example.core.domain.LifeDomain
 import com.example.core.domain.isApplicableOn
 import com.example.core.domain.ActivityLog
 import com.example.core.domain.ActivityCategory
+import com.example.core.domain.StreakStats
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.TextStyle
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
@@ -933,30 +935,13 @@ fun DashboardScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "I am Ankit Sudegora",
-                            fontSize = 12.sp,
+                            text = "Made with Love by Ankit Sudegora ❤️",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 0.5.sp
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Text(
-                                text = "Develop by Gemini and Ankit",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                fontFamily = FontFamily.SansSerif
-                            )
-                            Text(
-                                text = "❤️",
-                                fontSize = 11.sp,
-                                color = ColorCritical
-                            )
-                        }
                         Text(
                             text = "v1.0.4",
                             fontSize = 10.sp,
@@ -984,7 +969,16 @@ fun DashboardScreen(
                 CreateHabitInlineScreen(
                     selectedLanguage = selectedLanguage,
                     onSubmit = { domain, cadence, cue, routine, reward, notes, isBad ->
-                        viewModel.createHabit(domain, cadence, cue, routine, reward, notes, isBad)
+                        viewModel.createHabit(
+                            context = context,
+                            domain = domain,
+                            cadence = cadence,
+                            cueText = cue,
+                            routineText = routine,
+                            rewardText = reward,
+                            notes = notes,
+                            isBad = isBad
+                        )
                         activeTab = DashboardTab.DASHBOARD
                     }
                 )
@@ -1561,7 +1555,15 @@ fun HabitSparkline(
                         radius = 1.5.dp.toPx(),
                         center = point,
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-  fun HabitCard(
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HabitCard(
     selectedLanguage: AppLanguage,
     habit: Habit,
     isCompleted: Boolean,
@@ -1914,6 +1916,7 @@ fun HabitSparkline(
             }
         }
     }
+}
 
 
 @Composable
@@ -2551,7 +2554,13 @@ fun AddHabitDialog(
                     Text(
                         text = Localizations.get(selectedLanguage, "formula_sentence"),
                         fontSize = 12.sp,
-                       // Sentence Fields
+                        color = MaterialTheme.colorScheme.primary,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 16.sp
+                    )
+                }
+
+                // Sentence Fields
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = cueText,
@@ -4278,7 +4287,7 @@ object Localizations {
             "empty_desc" to "You haven't built any habit loops yet. Let's construct a simple trigger, action, and reward to get going!",
             "empty_btn" to "Create My First Loop",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Developed with Gemini and Ankit ♥️",
+            "footer_by" to "Made with Love by Ankit Sudegora",
             "footer_ver" to "v2.0.0 (Global Play Store Release)",
             "domain_dashboard_title" to "My Daily Balance across Life Areas",
             "realtime_indicator" to "Updated Live",
@@ -4327,7 +4336,7 @@ object Localizations {
             "empty_desc" to "No has creado hábitos todavía. ¡Vamos a crear tu primera rutina positiva!",
             "empty_btn" to "Crear mi primer hábito",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Desarrollado con Gemini y Ankit ♥️",
+            "footer_by" to "Hecho con amor por Ankit Sudegora",
             "footer_ver" to "v2.0.0 (Lanzamiento Global en Play Store)",
             "domain_dashboard_title" to "Mi Equilibrio Diario por Áreas",
             "realtime_indicator" to "En vivo",
@@ -4376,7 +4385,7 @@ object Localizations {
             "empty_desc" to "आपने अभी तक कोई आदत नहीं बनाई है। चलिए शुरुआत करते हैं!",
             "empty_btn" to "पहल करें",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Gemini और Ankit ♥️ द्वारा विकसित",
+            "footer_by" to "अंकित सुदेगोरा द्वारा प्यार से बनाया गया",
             "footer_ver" to "v2.0.0 (ग्लोबल प्ले स्टोर रिलीज)",
             "domain_dashboard_title" to "जीवन के क्षेत्रों में मेरा संतुलन",
             "realtime_indicator" to "लाइव अपडेट",
@@ -4425,7 +4434,7 @@ object Localizations {
             "empty_desc" to "Sie haben noch keine Gewohnheiten erstellt. Fangen wir an!",
             "empty_btn" to "Erste Gewohnheit erstellen",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Entwickelt mit Gemini und Ankit ♥️",
+            "footer_by" to "Mit Liebe gemacht von Ankit Sudegora",
             "footer_ver" to "v2.0.0 (Global Play Store Release)",
             "domain_dashboard_title" to "Meine Balance im Leben",
             "realtime_indicator" to "Live aktualisiert",
@@ -4474,7 +4483,7 @@ object Localizations {
             "empty_desc" to "まだ習慣が登録されていません。最初のハッピー習慣をつくってみませんか？",
             "empty_btn" to "最初の習慣を作る",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Gemini と Ankit ♥️ による開発",
+            "footer_by" to "Ankit Sudegora によって愛を込めて作られました",
             "footer_ver" to "v2.0.0 (グローバル Playストア公開版)",
             "domain_dashboard_title" to "ライフエリアのバランス",
             "realtime_indicator" to "リアルタイム更新",
@@ -4523,7 +4532,7 @@ object Localizations {
             "empty_desc" to "Você ainda não tem hábitos criados. Vamos criar seu primeiro hábito positivo!",
             "empty_btn" to "Criar meu primeiro hábito",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Desenvolvido com Gemini e Ankit ♥️",
+            "footer_by" to "Feito com amor por Ankit Sudegora",
             "footer_ver" to "v2.0.0 (Lanzamiento Global Google Play)",
             "domain_dashboard_title" to "Meu Equilíbrio Diário por Áreas",
             "realtime_indicator" to "Em tempo real",
@@ -5235,7 +5244,7 @@ fun ShareProgressDialog(
 --------------------------------------------
 $checkListText
 --------------------------------------------
-Consistently developed by Gemini and Ankit ♥️
+Made with Love by Ankit Sudegora
 🚀 Download HabitEngine: $appUrl
             """.trimIndent()
         }
