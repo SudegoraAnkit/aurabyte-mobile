@@ -58,6 +58,8 @@ import com.example.core.domain.LifeDomain
 import com.example.core.domain.isApplicableOn
 import com.example.core.domain.ActivityLog
 import com.example.core.domain.ActivityCategory
+import com.example.core.domain.StreakStats
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.TextStyle
 import com.example.ui.theme.*
 import kotlinx.coroutines.delay
@@ -189,6 +191,9 @@ fun DashboardScreen(
     
     // Manage state for editing a habit
     var editingHabit by remember { mutableStateOf<Habit?>(null) }
+    
+    // Manage state for detailing a habit
+    var detailingHabit by remember { mutableStateOf<Habit?>(null) }
     
     // Particles management for immediate checkbox coordinate explosions
     val particles = remember { mutableStateListOf<UiParticle>() }
@@ -416,6 +421,43 @@ fun DashboardScreen(
                             .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                // Profile Switcher for Solo / Co-op Local Multiplayer Versus Mode
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf("main" to "Player 1 (Solo) 👤", "coop" to "Player 2 (Co-op) 👥").forEach { (profId, label) ->
+                            val isSelected = uiState.activeProfileId == profId
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primary
+                                        else Color.Transparent
+                                    )
+                                    .clickable {
+                                        viewModel.selectProfile(profId)
+                                    }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Header calendar tester
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -816,13 +858,19 @@ fun DashboardScreen(
                                 selectedDate = uiState.selectedDate,
                                 history = history,
                                 onToggle = { clickX, clickY ->
+                                    if (!isCompleted) {
+                                        com.example.infrastructure.adapters.notifications.HapticFeedbackHelper.triggerCompletionHaptics(context)
+                                    }
                                     viewModel.toggleHabitCompletion(habit.id, isCompleted, clickX, clickY)
                                 },
                                 onDelete = {
-                                    viewModel.deleteHabit(habit.id)
+                                    viewModel.deleteHabit(context, habit.id)
                                 },
                                 onEdit = {
                                     editingHabit = habit
+                                },
+                                onDetails = {
+                                    detailingHabit = habit
                                 }
                             )
                         }
@@ -857,13 +905,19 @@ fun DashboardScreen(
                                 selectedDate = uiState.selectedDate,
                                 history = history,
                                 onToggle = { clickX, clickY ->
+                                    if (!isCompleted) {
+                                        com.example.infrastructure.adapters.notifications.HapticFeedbackHelper.triggerCompletionHaptics(context)
+                                    }
                                     viewModel.toggleHabitCompletion(habit.id, isCompleted, clickX, clickY)
                                 },
                                 onDelete = {
-                                    viewModel.deleteHabit(habit.id)
+                                    viewModel.deleteHabit(context, habit.id)
                                 },
                                 onEdit = {
                                     editingHabit = habit
+                                },
+                                onDetails = {
+                                    detailingHabit = habit
                                 }
                             )
                         }
@@ -881,30 +935,13 @@ fun DashboardScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "I am Ankit Sudegora",
-                            fontSize = 12.sp,
+                            text = "Made with Love by Ankit Sudegora ❤️",
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 0.5.sp
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Text(
-                                text = "Develop by Gemini and Ankit",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                fontFamily = FontFamily.SansSerif
-                            )
-                            Text(
-                                text = "❤️",
-                                fontSize = 11.sp,
-                                color = ColorCritical
-                            )
-                        }
                         Text(
                             text = "v1.0.4",
                             fontSize = 10.sp,
@@ -932,7 +969,16 @@ fun DashboardScreen(
                 CreateHabitInlineScreen(
                     selectedLanguage = selectedLanguage,
                     onSubmit = { domain, cadence, cue, routine, reward, notes, isBad ->
-                        viewModel.createHabit(domain, cadence, cue, routine, reward, notes, isBad)
+                        viewModel.createHabit(
+                            context = context,
+                            domain = domain,
+                            cadence = cadence,
+                            cueText = cue,
+                            routineText = routine,
+                            rewardText = reward,
+                            notes = notes,
+                            isBad = isBad
+                        )
                         activeTab = DashboardTab.DASHBOARD
                     }
                 )
@@ -1082,9 +1128,24 @@ fun DashboardScreen(
         if (showAddForm) {
             AddHabitDialog(
                 selectedLanguage = selectedLanguage,
+                activeProfileId = uiState.activeProfileId,
                 onDismiss = { showAddForm = false },
-                onSubmit = { domain, cadence, cue, routine, reward, notes, isBad ->
-                    viewModel.createHabit(domain, cadence, cue, routine, reward, notes, isBad)
+                onSubmit = { domain, cadence, cue, routine, reward, notes, isBad, milestone, restart, hour, minute, profile ->
+                    viewModel.createHabit(
+                        context = context,
+                        domain = domain,
+                        cadence = cadence,
+                        cueText = cue,
+                        routineText = routine,
+                        rewardText = reward,
+                        notes = notes,
+                        isBad = isBad,
+                        targetMilestone = milestone,
+                        restartOnMiss = restart,
+                        reminderHour = hour,
+                        reminderMinute = minute,
+                        profileId = profile
+                    )
                     showAddForm = false
                 }
             )
@@ -1096,8 +1157,9 @@ fun DashboardScreen(
                 habit = habitToEdit,
                 selectedLanguage = selectedLanguage,
                 onDismiss = { editingHabit = null },
-                onSubmit = { updatedDomain, updatedCue, updatedReward, updatedNotes, updatedIsBad ->
+                onSubmit = { updatedDomain, updatedCue, updatedReward, updatedNotes, updatedIsBad, updatedMilestone, updatedRestart, updatedHour, updatedMinute ->
                     viewModel.updateHabit(
+                        context = context,
                         habitId = habitToEdit.id,
                         domain = updatedDomain,
                         cadence = habitToEdit.cadence,
@@ -1106,10 +1168,28 @@ fun DashboardScreen(
                         rewardText = updatedReward,
                         createdAt = habitToEdit.createdAt,
                         notes = updatedNotes,
-                        isBad = updatedIsBad
+                        isBad = updatedIsBad,
+                        targetMilestone = updatedMilestone,
+                        restartOnMiss = updatedRestart,
+                        reminderHour = updatedHour,
+                        reminderMinute = updatedMinute,
+                        profileId = habitToEdit.profileId
                     )
                     editingHabit = null
                 }
+            )
+        }
+
+        if (detailingHabit != null) {
+            val habitToDetail = detailingHabit!!
+            val stats = habitToDetail.getStreakStats(uiState.logs, uiState.selectedDate)
+            val isThemeCyberpunk = uiState.themeMode == ThemeMode.CYBERPUNK
+            HabitDetailsDialog(
+                habit = habitToDetail,
+                stats = stats,
+                selectedLanguage = selectedLanguage,
+                isCyberpunk = isThemeCyberpunk,
+                onDismiss = { detailingHabit = null }
             )
         }
 
@@ -1482,7 +1562,6 @@ fun HabitSparkline(
     }
 }
 
-// Psychological Habit Card: Cue -> Routine -> Reward
 @Composable
 fun HabitCard(
     selectedLanguage: AppLanguage,
@@ -1493,12 +1572,13 @@ fun HabitCard(
     history: List<Boolean>,
     onToggle: (clickX: Float, clickY: Float) -> Unit,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onDetails: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-
+ 
     val domainColor = getDomainColor(habit.domain)
-
+ 
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1581,7 +1661,7 @@ fun HabitCard(
                         }
                     }
                 }
-
+ 
                 // Small 7-day completion sparkline chart to show recent consistency trends
                 HabitSparkline(
                     history = history,
@@ -1593,7 +1673,7 @@ fun HabitCard(
                 if (isSelectable) {
                     // We intercept pointer location first to get raw coordinate
                     var boxCoordinates by remember { mutableStateOf(Offset.Zero) }
-
+ 
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -1656,7 +1736,7 @@ fun HabitCard(
                     }
                 }
             }
-
+ 
             // Expanded Habit loop showing the Charles Duhigg formula and notes
             AnimatedVisibility(
                 visible = expanded,
@@ -1679,7 +1759,7 @@ fun HabitCard(
                         fontFamily = FontFamily.Monospace
                     )
                     Spacer(modifier = Modifier.height(6.dp))
-
+ 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row {
                             Text(text = "${Localizations.get(selectedLanguage, "guide_content_cue")}: ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
@@ -1694,7 +1774,7 @@ fun HabitCard(
                             Text(text = habit.rewardText, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Medium)
                         }
                     }
-
+ 
                     if (habit.notes.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Column(
@@ -1718,7 +1798,7 @@ fun HabitCard(
                             )
                         }
                     }
-
+ 
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier
@@ -1737,11 +1817,36 @@ fun HabitCard(
                         } else {
                             Spacer(modifier = Modifier.weight(1f))
                         }
-
+ 
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Stats/Details Button
+                            OutlinedButton(
+                                onClick = onDetails,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.secondary
+                                ),
+                                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.secondary),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "View stats",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Stats",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+
                             // Edit Button (Primary-colored, outline styling for prominence)
                             OutlinedButton(
                                 onClick = onEdit,
@@ -1773,7 +1878,7 @@ fun HabitCard(
                                     letterSpacing = 0.5.sp
                                 )
                             }
-
+ 
                             // Delete Button (Critical red error outline style)
                             OutlinedButton(
                                 onClick = onDelete,
@@ -1812,6 +1917,303 @@ fun HabitCard(
         }
     }
 }
+
+
+@Composable
+fun ContributionGrid(
+    historyGrid: List<Boolean>,
+    activeColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        for (w in 0 until 4) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                for (d in 0 until 7) {
+                    val index = w * 7 + d
+                    val completed = historyGrid.getOrNull(index) ?: false
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (completed) activeColor
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HabitDetailsDialog(
+    habit: Habit,
+    stats: StreakStats,
+    selectedLanguage: AppLanguage,
+    isCyberpunk: Boolean,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isSyncing by remember { mutableStateOf(false) }
+    var syncStatus by remember { mutableStateOf("") }
+
+    val syncEngine = remember {
+        com.example.infrastructure.adapters.bluetooth.BluetoothPeerSyncEngine(context) { peerStreak ->
+            scope.launch {
+                if (peerStreak > 1 && stats.currentStreak > 1) {
+                    syncStatus = "Accountability Duo Synced! Peer Streak: $peerStreak days. 🏆 Badge Unlocked!"
+                } else {
+                    syncStatus = "Synced! Peer Streak: $peerStreak days."
+                }
+                Toast.makeText(context, "Accountability Synced! Peer Streak: $peerStreak days.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            syncEngine.stopSync()
+        }
+    }
+
+    val permissionsToRequest = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        arrayOf(
+            android.Manifest.permission.BLUETOOTH_SCAN,
+            android.Manifest.permission.BLUETOOTH_ADVERTISE,
+            android.Manifest.permission.BLUETOOTH_CONNECT
+        )
+    } else {
+        arrayOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            isSyncing = true
+            syncStatus = "Searching for Accountability partner..."
+            syncEngine.startSync(stats.currentStreak)
+            scope.launch {
+                delay(15000)
+                if (isSyncing) {
+                    syncEngine.stopSync()
+                    isSyncing = false
+                    if (syncStatus == "Searching for Accountability partner...") {
+                        syncStatus = "Sync timed out. No peer found."
+                    }
+                }
+            }
+        } else {
+            Toast.makeText(context, "Bluetooth and Location permissions are required for offline sync.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight()
+                .border(BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)), RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+              ) {
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceBetween,
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Text(
+                          text = "Habit Insights",
+                          style = MaterialTheme.typography.titleMedium,
+                          fontWeight = FontWeight.Bold,
+                          color = MaterialTheme.colorScheme.primary,
+                          fontFamily = FontFamily.Monospace
+                      )
+                      IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                          Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                      }
+                  }
+  
+                  Text(
+                      text = habit.routineText,
+                      style = MaterialTheme.typography.bodyLarge,
+                      fontWeight = FontWeight.Bold,
+                      color = MaterialTheme.colorScheme.onSurface,
+                      textAlign = TextAlign.Center
+                  )
+  
+                  if (habit.cueText.isNotEmpty() || habit.rewardText.isNotEmpty()) {
+                      Column(
+                          modifier = Modifier.fillMaxWidth(),
+                          verticalArrangement = Arrangement.spacedBy(4.dp)
+                      ) {
+                          if (habit.cueText.isNotEmpty()) {
+                              Row {
+                                  Text(text = "Cue: ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                  Text(text = habit.cueText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                              }
+                          }
+                          if (habit.rewardText.isNotEmpty()) {
+                              Row {
+                                  Text(text = "Reward: ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                  Text(text = habit.rewardText, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Medium)
+                              }
+                          }
+                      }
+                  }
+  
+                  HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+  
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.SpaceEvenly
+                  ) {
+                      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                          Text(text = "${stats.currentStreak}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                          Text(text = "Current Streak", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                      }
+                      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                          Text(text = "${stats.longestStreak}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.secondary)
+                          Text(text = "Longest Streak", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                      }
+                      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                          Text(text = "${stats.completionPercentage}%", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = getDomainColor(habit.domain))
+                          Text(text = "Completion Rate", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                      }
+                  }
+  
+                  if (habit.targetMilestone > 0) {
+                      Box(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .clip(RoundedCornerShape(12.dp))
+                              .background(
+                                  if (stats.milestoneReached) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                  else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)
+                              )
+                              .padding(12.dp),
+                          contentAlignment = Alignment.Center
+                      ) {
+                          Text(
+                              text = if (stats.milestoneReached) "🏆 Target Milestone Reached! (${habit.targetMilestone} Days)"
+                                     else "🎯 Target Milestone: ${habit.targetMilestone} Days (${stats.currentStreak}/${habit.targetMilestone} current)",
+                              fontSize = 12.sp,
+                              fontWeight = FontWeight.Bold,
+                              color = if (stats.milestoneReached) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                          )
+                      }
+                  }
+  
+                  Column(
+                      modifier = Modifier.fillMaxWidth(),
+                      verticalArrangement = Arrangement.spacedBy(4.dp),
+                      horizontalAlignment = Alignment.CenterHorizontally
+                  ) {
+                      Text(
+                          text = "4-Week Consistency Grid",
+                          style = MaterialTheme.typography.labelMedium,
+                          fontWeight = FontWeight.Bold,
+                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                      )
+                      ContributionGrid(
+                          historyGrid = stats.historyGrid,
+                          activeColor = getDomainColor(habit.domain)
+                      )
+                  }
+  
+                  HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+  
+                  Column(
+                      modifier = Modifier.fillMaxWidth(),
+                      verticalArrangement = Arrangement.spacedBy(10.dp)
+                  ) {
+                      Button(
+                          onClick = {
+                              val success = ShareCardGenerator.generateAndSaveShareCard(
+                                  context = context,
+                                  habit = habit,
+                                  stats = stats,
+                                  isCyberpunk = isCyberpunk
+                              )
+                              if (success) {
+                                  Toast.makeText(context, "Card saved to Gallery! Check Pictures/HabitEngine", Toast.LENGTH_LONG).show()
+                              } else {
+                                  Toast.makeText(context, "Failed to save card.", Toast.LENGTH_SHORT).show()
+                              }
+                          },
+                          modifier = Modifier.fillMaxWidth(),
+                          colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                          shape = RoundedCornerShape(12.dp)
+                      ) {
+                          Icon(imageVector = Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(16.dp))
+                          Spacer(modifier = Modifier.width(8.dp))
+                          Text(text = "Save Share Card to Gallery", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                      }
+  
+                      Button(
+                          onClick = {
+                              if (isSyncing) {
+                                  syncEngine.stopSync()
+                                  isSyncing = false
+                                  syncStatus = "Sync stopped."
+                              } else {
+                                  permissionLauncher.launch(permissionsToRequest)
+                              }
+                          },
+                          modifier = Modifier.fillMaxWidth(),
+                          colors = ButtonDefaults.buttonColors(
+                              containerColor = if (isSyncing) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+                          ),
+                          shape = RoundedCornerShape(12.dp)
+                      ) {
+                          Icon(
+                              imageVector = if (isSyncing) Icons.Default.Close else Icons.Default.Refresh,
+                              contentDescription = "Sync",
+                              modifier = Modifier.size(16.dp)
+                          )
+                          Spacer(modifier = Modifier.width(8.dp))
+                          Text(
+                              text = if (isSyncing) "Stop Synchronization" else "Pair Accountability Duo (BLE)",
+                              fontSize = 13.sp,
+                              fontWeight = FontWeight.Bold
+                          )
+                      }
+  
+                      if (syncStatus.isNotEmpty()) {
+                          Text(
+                              text = syncStatus,
+                              fontSize = 11.sp,
+                              fontWeight = FontWeight.Medium,
+                              color = MaterialTheme.colorScheme.primary,
+                              textAlign = TextAlign.Center,
+                              modifier = Modifier.fillMaxWidth()
+                          )
+                      }
+                  }
+              }
+          }
+      }
+  }
 
 // Dopamine Celebration Popup overlay
 @Composable
@@ -1943,8 +2345,22 @@ fun DopamineCelebrationPopup(
 @Composable
 fun AddHabitDialog(
     selectedLanguage: AppLanguage,
+    activeProfileId: String,
     onDismiss: () -> Unit,
-    onSubmit: (domain: LifeDomain, cadence: Cadence, cueText: String, routineText: String, rewardText: String, notesText: String, isBad: Boolean) -> Unit
+    onSubmit: (
+        domain: LifeDomain,
+        cadence: Cadence,
+        cueText: String,
+        routineText: String,
+        rewardText: String,
+        notesText: String,
+        isBad: Boolean,
+        targetMilestone: Int,
+        restartOnMiss: Boolean,
+        reminderHour: Int?,
+        reminderMinute: Int?,
+        profileId: String
+    ) -> Unit
 ) {
     var domain by remember { mutableStateOf(LifeDomain.HEALTH) }
     var cadence by remember { mutableStateOf(Cadence.DAILY) }
@@ -1955,7 +2371,13 @@ fun AddHabitDialog(
     var routineText by remember { mutableStateOf("") }
     var rewardText by remember { mutableStateOf("") }
  
+    var targetMilestone by remember { mutableStateOf(0) }
+    var restartOnMiss by remember { mutableStateOf(false) }
+    var reminderHour by remember { mutableStateOf<Int?>(null) }
+    var reminderMinute by remember { mutableStateOf<Int?>(null) }
+
     var hasAttemptedSubmit by remember { mutableStateOf(false) }
+    val context = LocalContext.current
  
     Dialog(
         onDismissRequest = onDismiss,
@@ -2019,7 +2441,7 @@ fun AddHabitDialog(
                                     .weight(1f)
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(
-                                        if (isSelected) getDomainColor(d) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                                     )
                                     .clickable { domain = d }
                                     .padding(vertical = 8.dp),
@@ -2029,7 +2451,7 @@ fun AddHabitDialog(
                                     text = d.displayName,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onSurface
+                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
@@ -2137,7 +2559,7 @@ fun AddHabitDialog(
                         lineHeight = 16.sp
                     )
                 }
- 
+
                 // Sentence Fields
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -2153,18 +2575,7 @@ fun AddHabitDialog(
                         ),
                         keyboardActions = KeyboardActions(
                             onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        trailingIcon = {
-                            if (cueText.isNotEmpty()) {
-                                IconButton(onClick = { focusManager.clearFocus() }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Done,
-                                        contentDescription = "Hide Keyboard",
-                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                                    )
-                                }
-                            }
-                        }
+                        )
                     )
  
                     OutlinedTextField(
@@ -2210,7 +2621,7 @@ fun AddHabitDialog(
                             onNext = { focusManager.moveFocus(FocusDirection.Down) }
                         )
                     )
-
+ 
                     OutlinedTextField(
                         value = notesText,
                         onValueChange = { notesText = it },
@@ -2227,6 +2638,98 @@ fun AddHabitDialog(
                         )
                     )
                 }
+
+                // Streak Milestones Section
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Target Streak Milestone:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(0 to "None", 21 to "21 Days", 71 to "71 Days").forEach { (days, label) ->
+                            val isSelected = targetMilestone == days
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                                    .clickable { targetMilestone = days }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+
+                    if (targetMilestone > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp).clickable { restartOnMiss = !restartOnMiss }
+                        ) {
+                            Checkbox(checked = restartOnMiss, onCheckedChange = { restartOnMiss = it })
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Reset streak to 1 if a day is missed", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+
+                // Daily Time Reminder Section
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Daily Time Reminder:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val isReminderEnabled = reminderHour != null && reminderMinute != null
+                        Checkbox(
+                            checked = isReminderEnabled,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    reminderHour = 8
+                                    reminderMinute = 0
+                                } else {
+                                    reminderHour = null
+                                    reminderMinute = null
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Enable daily reminder", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.width(20.dp))
+                        if (isReminderEnabled) {
+                            val timeStr = String.format("%02d:%02d", reminderHour ?: 8, reminderMinute ?: 0)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                    .clickable {
+                                        android.app.TimePickerDialog(
+                                            context,
+                                            { _, hourOfDay, minuteOfHour ->
+                                                reminderHour = hourOfDay
+                                                reminderMinute = minuteOfHour
+                                            },
+                                            reminderHour ?: 8,
+                                            reminderMinute ?: 0,
+                                            true
+                                        ).show()
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(text = timeStr, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
  
                 if (hasAttemptedSubmit && routineText.isBlank()) {
                     Text(
@@ -2241,7 +2744,7 @@ fun AddHabitDialog(
                         hasAttemptedSubmit = true
                         if (routineText.isNotBlank()) {
                             focusManager.clearFocus()
-                            onSubmit(domain, cadence, cueText, routineText, rewardText, notesText, isBad)
+                            onSubmit(domain, cadence, cueText, routineText, rewardText, notesText, isBad, targetMilestone, restartOnMiss, reminderHour, reminderMinute, activeProfileId)
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -3383,7 +3886,17 @@ fun EditHabitDialog(
     habit: Habit,
     selectedLanguage: AppLanguage,
     onDismiss: () -> Unit,
-    onSubmit: (domain: LifeDomain, cueText: String, rewardText: String, notesText: String, isBad: Boolean) -> Unit
+    onSubmit: (
+        domain: LifeDomain,
+        cueText: String,
+        rewardText: String,
+        notesText: String,
+        isBad: Boolean,
+        targetMilestone: Int,
+        restartOnMiss: Boolean,
+        reminderHour: Int?,
+        reminderMinute: Int?
+    ) -> Unit
 ) {
     var selectedDomain by remember { mutableStateOf(habit.domain) }
     var notesText by remember { mutableStateOf(habit.notes) }
@@ -3391,7 +3904,12 @@ fun EditHabitDialog(
 
     var cueText by remember { mutableStateOf(habit.cueText) }
     var rewardText by remember { mutableStateOf(habit.rewardText) }
+    var targetMilestone by remember { mutableStateOf(habit.targetMilestone) }
+    var restartOnMiss by remember { mutableStateOf(habit.restartOnMiss) }
+    var reminderHour by remember { mutableStateOf<Int?>(habit.reminderHour) }
+    var reminderMinute by remember { mutableStateOf<Int?>(habit.reminderMinute) }
     var hasAttemptedSubmit by remember { mutableStateOf(false) }
+    val context = LocalContext.current
  
     Dialog(
         onDismissRequest = onDismiss,
@@ -3471,7 +3989,7 @@ fun EditHabitDialog(
                         }
                     }
                 }
-
+ 
                 // Habit Type Selection (Good vs Bad)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
@@ -3519,7 +4037,7 @@ fun EditHabitDialog(
                         }
                     }
                 }
-
+ 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
  
                 // The Read-Only Title section (Heuristic Routine)
@@ -3604,12 +4122,104 @@ fun EditHabitDialog(
                         )
                     )
                 }
+
+                // Streak Milestones Section
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Target Streak Milestone:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(0 to "None", 21 to "21 Days", 71 to "71 Days").forEach { (days, label) ->
+                            val isSelected = targetMilestone == days
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                                    .clickable { targetMilestone = days }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+
+                    if (targetMilestone > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp).clickable { restartOnMiss = !restartOnMiss }
+                        ) {
+                            Checkbox(checked = restartOnMiss, onCheckedChange = { restartOnMiss = it })
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Reset streak to 1 if a day is missed", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+
+                // Daily Time Reminder Section
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Daily Time Reminder:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val isReminderEnabled = reminderHour != null && reminderMinute != null
+                        Checkbox(
+                            checked = isReminderEnabled,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    reminderHour = 8
+                                    reminderMinute = 0
+                                } else {
+                                    reminderHour = null
+                                    reminderMinute = null
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Enable daily reminder", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(modifier = Modifier.width(20.dp))
+                        if (isReminderEnabled) {
+                            val timeStr = String.format("%02d:%02d", reminderHour ?: 8, reminderMinute ?: 0)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                    .clickable {
+                                        android.app.TimePickerDialog(
+                                            context,
+                                            { _, hourOfDay, minuteOfHour ->
+                                                reminderHour = hourOfDay
+                                                reminderMinute = minuteOfHour
+                                            },
+                                            reminderHour ?: 8,
+                                            reminderMinute ?: 0,
+                                            true
+                                        ).show()
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(text = timeStr, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
  
                 Button(
                     onClick = {
                         hasAttemptedSubmit = true
                         focusManager.clearFocus()
-                        onSubmit(selectedDomain, cueText, rewardText, notesText, isBad)
+                        onSubmit(selectedDomain, cueText, rewardText, notesText, isBad, targetMilestone, restartOnMiss, reminderHour, reminderMinute)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -3677,7 +4287,7 @@ object Localizations {
             "empty_desc" to "You haven't built any habit loops yet. Let's construct a simple trigger, action, and reward to get going!",
             "empty_btn" to "Create My First Loop",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Developed with Gemini and Ankit ♥️",
+            "footer_by" to "Made with Love by Ankit Sudegora",
             "footer_ver" to "v2.0.0 (Global Play Store Release)",
             "domain_dashboard_title" to "My Daily Balance across Life Areas",
             "realtime_indicator" to "Updated Live",
@@ -3726,7 +4336,7 @@ object Localizations {
             "empty_desc" to "No has creado hábitos todavía. ¡Vamos a crear tu primera rutina positiva!",
             "empty_btn" to "Crear mi primer hábito",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Desarrollado con Gemini y Ankit ♥️",
+            "footer_by" to "Hecho con amor por Ankit Sudegora",
             "footer_ver" to "v2.0.0 (Lanzamiento Global en Play Store)",
             "domain_dashboard_title" to "Mi Equilibrio Diario por Áreas",
             "realtime_indicator" to "En vivo",
@@ -3775,7 +4385,7 @@ object Localizations {
             "empty_desc" to "आपने अभी तक कोई आदत नहीं बनाई है। चलिए शुरुआत करते हैं!",
             "empty_btn" to "पहल करें",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Gemini और Ankit ♥️ द्वारा विकसित",
+            "footer_by" to "अंकित सुदेगोरा द्वारा प्यार से बनाया गया",
             "footer_ver" to "v2.0.0 (ग्लोबल प्ले स्टोर रिलीज)",
             "domain_dashboard_title" to "जीवन के क्षेत्रों में मेरा संतुलन",
             "realtime_indicator" to "लाइव अपडेट",
@@ -3824,7 +4434,7 @@ object Localizations {
             "empty_desc" to "Sie haben noch keine Gewohnheiten erstellt. Fangen wir an!",
             "empty_btn" to "Erste Gewohnheit erstellen",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Entwickelt mit Gemini und Ankit ♥️",
+            "footer_by" to "Mit Liebe gemacht von Ankit Sudegora",
             "footer_ver" to "v2.0.0 (Global Play Store Release)",
             "domain_dashboard_title" to "Meine Balance im Leben",
             "realtime_indicator" to "Live aktualisiert",
@@ -3873,7 +4483,7 @@ object Localizations {
             "empty_desc" to "まだ習慣が登録されていません。最初のハッピー習慣をつくってみませんか？",
             "empty_btn" to "最初の習慣を作る",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Gemini と Ankit ♥️ による開発",
+            "footer_by" to "Ankit Sudegora によって愛を込めて作られました",
             "footer_ver" to "v2.0.0 (グローバル Playストア公開版)",
             "domain_dashboard_title" to "ライフエリアのバランス",
             "realtime_indicator" to "リアルタイム更新",
@@ -3922,7 +4532,7 @@ object Localizations {
             "empty_desc" to "Você ainda não tem hábitos criados. Vamos criar seu primeiro hábito positivo!",
             "empty_btn" to "Criar meu primeiro hábito",
             "footer_author" to "Ankit Sudegora",
-            "footer_by" to "Desenvolvido com Gemini e Ankit ♥️",
+            "footer_by" to "Feito com amor por Ankit Sudegora",
             "footer_ver" to "v2.0.0 (Lanzamiento Global Google Play)",
             "domain_dashboard_title" to "Meu Equilíbrio Diário por Áreas",
             "realtime_indicator" to "Em tempo real",
@@ -4634,7 +5244,7 @@ fun ShareProgressDialog(
 --------------------------------------------
 $checkListText
 --------------------------------------------
-Consistently developed by Gemini and Ankit ♥️
+Made with Love by Ankit Sudegora
 🚀 Download HabitEngine: $appUrl
             """.trimIndent()
         }

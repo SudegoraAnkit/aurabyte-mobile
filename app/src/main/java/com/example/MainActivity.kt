@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.room.Room
 import com.example.infrastructure.adapters.database.AppDatabase
 import com.example.infrastructure.adapters.database.RoomStorageAdapter
@@ -37,12 +38,15 @@ class MainActivity : ComponentActivity() {
         // 2. Wrap via Hexagonal StoragePort Interface Adapter
         val storageAdapter = RoomStorageAdapter(database)
 
+        com.example.infrastructure.adapters.notifications.NotificationScheduler.scheduleGeneralReminders(applicationContext)
+
         // 3. Simple elegant Constructor-Injection Factory for ViewModel Setup
         val viewModelFactory = object : ViewModelProvider.Factory {
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            override fun <T : ViewModel> create(modelClass: Class<T>, extras: androidx.lifecycle.viewmodel.CreationExtras): T {
                 if (modelClass.isAssignableFrom(HabitViewModel::class.java)) {
+                    val savedStateHandle = extras.createSavedStateHandle()
                     @Suppress("UNCHECKED_CAST")
-                    return HabitViewModel(storageAdapter) as T
+                    return HabitViewModel(storageAdapter, savedStateHandle) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
             }

@@ -14,8 +14,8 @@ android {
     applicationId = "com.ankitsudegora.productivity"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.1.0"
+    versionCode = 3
+    versionName = "2.0.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -117,6 +117,8 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.glance.appwidget)
+  implementation(libs.androidx.glance.material3)
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)
