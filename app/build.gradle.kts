@@ -14,8 +14,8 @@ android {
     applicationId = "com.ankitsudegora.productivity"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "2.0.0"
+    versionCode = 4
+    versionName = "2.0.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -61,11 +61,13 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
+val verName = android.defaultConfig.versionName ?: "1.0.0"
+
 tasks.register<Copy>("copyDebugApk") {
   val buildDir = layout.buildDirectory
   from(buildDir.map { it.dir("outputs/apk/debug") }) {
     include("app-debug.apk")
-    rename { "HabitEngine_1.1.0.apk" }
+    rename("app-debug.apk", "HabitEngine_$verName.apk")
   }
   into(buildDir.map { it.dir("outputs/HabitEngineApk") })
 }
@@ -74,7 +76,7 @@ tasks.register<Copy>("copyReleaseApk") {
   val buildDir = layout.buildDirectory
   from(buildDir.map { it.dir("outputs/apk/release") }) {
     include("app-release.apk")
-    rename { "HabitEngine_1.1.0.apk" }
+    rename("app-release.apk", "HabitEngine_$verName.apk")
   }
   into(buildDir.map { it.dir("outputs/HabitEngineApk") })
 }

@@ -121,7 +121,7 @@ gradle clean assembleDebug
 ```
 
 The compiled APK will be output beautifully at:
-`app/build/outputs/HabitEngineApk/HabitEngine_1.1.0.apk`
+`app/build/outputs/HabitEngineApk/HabitEngine_<versionName>.apk`
 
 ---
 
