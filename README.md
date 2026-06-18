@@ -1,4 +1,7 @@
 # ⚡ HabitEngine ⚡
+----
+> [Download Now](https://github.com/SudegoraAnkit/HabitEngine/blob/main/.build-outputs/app-release.apk)
+----
 
 > **Quantify Your Daily Energy, Habits, and Discipline into Clean, Immutable Data. Designed for Devs, Built Offline-First.**
 
