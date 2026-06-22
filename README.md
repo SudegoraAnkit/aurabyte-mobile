@@ -113,7 +113,7 @@ Clone this repository and open the project inside Android Studio:
 
 ```bash
 # Clone the open-source repository
-git clone https://github.com/ankitrai-dev/habitengine.git
+git clone https://github.com/SudegoraAnkit/HabitEngine.git
 cd habitengine
 
 # Clean and Build project

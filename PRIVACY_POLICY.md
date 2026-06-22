@@ -50,4 +50,4 @@ We may update this Privacy Policy from time to time. Any changes will be reflect
 ## 6. Contact Us
 
 If you have any questions or suggestions about this Privacy Policy, please contact the developer or open an issue on our GitHub repository:
-- **GitHub Repository:** [HabitEngine](https://github.com/ankitrai-dev/habitengine)
+- **GitHub Repository:** [HabitEngine](https://github.com/SudegoraAnkit/HabitEngine)
