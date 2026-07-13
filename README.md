@@ -116,7 +116,7 @@ Clone this repository and open the project inside Android Studio:
 
 ```bash
 # Clone the open-source repository
-git clone https://github.com/ankitrai-dev/habitengine.git
+git clone https://github.com/SudegoraAnkit/HabitEngine.git
 cd habitengine
 
 # Clean and Build project
@@ -124,7 +124,7 @@ gradle clean assembleDebug
 ```
 
 The compiled APK will be output beautifully at:
-`app/build/outputs/HabitEngineApk/HabitEngine_1.1.0.apk`
+`app/build/outputs/HabitEngineApk/HabitEngine_<versionName>.apk`
 
 ---
 

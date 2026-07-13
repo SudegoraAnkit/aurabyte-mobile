@@ -421,42 +421,7 @@ fun DashboardScreen(
                             .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Profile Switcher for Solo / Co-op Local Multiplayer Versus Mode
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f))
-                            .padding(4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        listOf("main" to "Player 1 (Solo) 👤", "coop" to "Player 2 (Co-op) 👥").forEach { (profId, label) ->
-                            val isSelected = uiState.activeProfileId == profId
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primary
-                                        else Color.Transparent
-                                    )
-                                    .clickable {
-                                        viewModel.selectProfile(profId)
-                                    }
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = label,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-                    }
-                }
+
 
                 // Header calendar tester
                 item {
@@ -4288,7 +4253,7 @@ object Localizations {
             "empty_btn" to "Create My First Loop",
             "footer_author" to "Ankit Sudegora",
             "footer_by" to "Made with Love by Ankit Sudegora",
-            "footer_ver" to "v2.0.0 (Global Play Store Release)",
+            "footer_ver" to "v1.0.0.5 (Global Play Store Release)",
             "domain_dashboard_title" to "My Daily Balance across Life Areas",
             "realtime_indicator" to "Updated Live",
             "heatwave_dashboard_title" to "My Personal Consistency Tracker",
@@ -4337,7 +4302,7 @@ object Localizations {
             "empty_btn" to "Crear mi primer hábito",
             "footer_author" to "Ankit Sudegora",
             "footer_by" to "Hecho con amor por Ankit Sudegora",
-            "footer_ver" to "v2.0.0 (Lanzamiento Global en Play Store)",
+            "footer_ver" to "v1.0.0.5 (Lanzamiento Global en Play Store)",
             "domain_dashboard_title" to "Mi Equilibrio Diario por Áreas",
             "realtime_indicator" to "En vivo",
             "heatwave_dashboard_title" to "Mi Registro de Consistencia",
@@ -4386,7 +4351,7 @@ object Localizations {
             "empty_btn" to "पहल करें",
             "footer_author" to "Ankit Sudegora",
             "footer_by" to "अंकित सुदेगोरा द्वारा प्यार से बनाया गया",
-            "footer_ver" to "v2.0.0 (ग्लोबल प्ले स्टोर रिलीज)",
+            "footer_ver" to "v1.0.0.5 (ग्लोबल प्ले स्टोर रिलीज)",
             "domain_dashboard_title" to "जीवन के क्षेत्रों में मेरा संतुलन",
             "realtime_indicator" to "लाइव अपडेट",
             "heatwave_dashboard_title" to "मेरी निरंतरता (Consistency)",
@@ -4435,7 +4400,7 @@ object Localizations {
             "empty_btn" to "Erste Gewohnheit erstellen",
             "footer_author" to "Ankit Sudegora",
             "footer_by" to "Mit Liebe gemacht von Ankit Sudegora",
-            "footer_ver" to "v2.0.0 (Global Play Store Release)",
+            "footer_ver" to "v1.0.0.5 (Global Play Store Release)",
             "domain_dashboard_title" to "Meine Balance im Leben",
             "realtime_indicator" to "Live aktualisiert",
             "heatwave_dashboard_title" to "Meine Beständigkeit",
@@ -4484,7 +4449,7 @@ object Localizations {
             "empty_btn" to "最初の習慣を作る",
             "footer_author" to "Ankit Sudegora",
             "footer_by" to "Ankit Sudegora によって愛を込めて作られました",
-            "footer_ver" to "v2.0.0 (グローバル Playストア公開版)",
+            "footer_ver" to "v1.0.0.5 (グローバル Playストア公開版)",
             "domain_dashboard_title" to "ライフエリアのバランス",
             "realtime_indicator" to "リアルタイム更新",
             "heatwave_dashboard_title" to "習慣の継続状況",
@@ -4533,7 +4498,7 @@ object Localizations {
             "empty_btn" to "Criar meu primeiro hábito",
             "footer_author" to "Ankit Sudegora",
             "footer_by" to "Feito com amor por Ankit Sudegora",
-            "footer_ver" to "v2.0.0 (Lanzamiento Global Google Play)",
+            "footer_ver" to "v1.0.0.5 (Lanzamiento Global Google Play)",
             "domain_dashboard_title" to "Meu Equilíbrio Diário por Áreas",
             "realtime_indicator" to "Em tempo real",
             "heatwave_dashboard_title" to "Meu Registro de Consistência",
@@ -4984,61 +4949,183 @@ fun SettingsAndFaqDialog(
 
                 // GitHub Section Card
                 val context = LocalContext.current
+                val repoUrl = "https://github.com/SudegoraAnkit/HabitEngine"
+                val shareMessage = when (selectedLanguage) {
+                    AppLanguage.SPANISH -> "¡Mira HabitEngine, un gestor de hábitos offline-first en GitHub! 🐙\n$repoUrl"
+                    AppLanguage.HINDI -> "गिटहब पर HabitEngine देखें, एक ऑफलाइन-फर्स्ट हैबिट ट्रैकर! 🐙\n$repoUrl"
+                    AppLanguage.GERMAN -> "Sieh dir HabitEngine an, einen offline-first Gewohnheitstracker auf GitHub! 🐙\n$repoUrl"
+                    AppLanguage.JAPANESE -> "オフライン対応の習慣トラッカー「HabitEngine」をGitHubでチェックしよう！ 🐙\n$repoUrl"
+                    AppLanguage.PORTUGUESE -> "Confira o HabitEngine, um rastreador de hábitos offline-first no GitHub! 🐙\n$repoUrl"
+                    else -> "Check out HabitEngine, an offline-first habit tracker on GitHub! 🐙\n$repoUrl"
+                }
+                val visitRepoText = when (selectedLanguage) {
+                    AppLanguage.SPANISH -> "Visitar Repositorio"
+                    AppLanguage.HINDI -> "रिपोजिटरी पर जाएं"
+                    AppLanguage.GERMAN -> "Repo besuchen"
+                    AppLanguage.JAPANESE -> "リポジトリを見る"
+                    AppLanguage.PORTUGUESE -> "Visitar Repositório"
+                    else -> "Visit Repository"
+                }
+                val shareRepoText = when (selectedLanguage) {
+                    AppLanguage.SPANISH -> "Compartir Link"
+                    AppLanguage.HINDI -> "लिंक साझा करें"
+                    AppLanguage.GERMAN -> "Link teilen"
+                    AppLanguage.JAPANESE -> "リンクを共有"
+                    AppLanguage.PORTUGUESE -> "Compartilhar Link"
+                    else -> "Share Project"
+                }
+
                 Card(
                     modifier = Modifier.fillMaxWidth().testTag("github_section"),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
                     ),
                     shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Text(
-                                text = githubHeader,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontFamily = FontFamily.Monospace
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🐙", fontSize = 18.sp)
+                            }
+                            Column {
+                                Text(
+                                    text = "SudegoraAnkit / HabitEngine",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // MIT Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .background(
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                                RoundedCornerShape(4.dp)
+                                            )
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text(
+                                            text = "MIT License",
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                    // Offline-First Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .background(
+                                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                                RoundedCornerShape(4.dp)
+                                            )
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text(
+                                            text = "Offline-First",
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                            }
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
                         Text(
                             text = githubDesc,
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                             lineHeight = 15.sp
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            onClick = {
-                                try {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/ankitrai-dev/habitengine"))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Could not open browser: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().testTag("github_link_button"),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            ),
-                            contentPadding = PaddingValues(vertical = 8.dp),
-                            shape = RoundedCornerShape(10.dp)
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(repoUrl))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "Could not open browser: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(1.2f).testTag("github_link_button"),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text(
-                                    text = "🐙  $githubButtonLabel",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "Visit repo",
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = visitRepoText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            
+                            FilledTonalButton(
+                                onClick = {
+                                    try {
+                                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(android.content.Intent.EXTRA_TEXT, shareMessage)
+                                        }
+                                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Project Link"))
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "Could not share: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.weight(0.8f).testTag("github_share_button"),
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "Share link",
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = shareRepoText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
