@@ -17,6 +17,7 @@ object NotificationScheduler {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         
         scheduleGeneralAlarm(context, alarmManager, 8, 0, "morning", 1001)
+        scheduleGeneralAlarm(context, alarmManager, 15, 0, "afternoon", 1003)
         scheduleGeneralAlarm(context, alarmManager, 20, 0, "evening", 1002)
     }
 

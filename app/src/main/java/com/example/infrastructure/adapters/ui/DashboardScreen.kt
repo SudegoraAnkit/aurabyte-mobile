@@ -71,7 +71,8 @@ import kotlin.random.Random
 enum class DashboardTab {
     DASHBOARD,
     CREATE_HABIT,
-    ACTIVITY_LOGGER
+    ACTIVITY_LOGGER,
+    STATS
 }
 
 enum class ActivitySortOption(val displayName: String) {
@@ -387,6 +388,14 @@ fun DashboardScreen(
                             AppLanguage.JAPANESE -> "履歴"
                             AppLanguage.PORTUGUESE -> "Atividades"
                             else -> "Logger"
+                        }),
+                        Triple(DashboardTab.STATS, Icons.Default.Star, when (selectedLanguage) {
+                            AppLanguage.SPANISH -> "Estadísticas"
+                            AppLanguage.HINDI -> "आंकड़े"
+                            AppLanguage.GERMAN -> "Statistiken"
+                            AppLanguage.JAPANESE -> "統計"
+                            AppLanguage.PORTUGUESE -> "Estatísticas"
+                            else -> "Statistics"
                         })
                     )
                     
@@ -976,6 +985,18 @@ fun DashboardScreen(
                         }
                     }
                 }
+            }
+        }
+
+        if (activeTab == DashboardTab.STATS) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                StatsScreen(
+                    uiState = uiState,
+                    selectedLanguage = selectedLanguage
+                )
             }
         }
 
@@ -6267,6 +6288,552 @@ fun CreateHabitInlineScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimary
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun StatsScreen(
+    uiState: MainUiState,
+    selectedLanguage: AppLanguage
+) {
+    val habits = uiState.habits
+    val logs = uiState.logs
+
+    if (habits.isEmpty()) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("📈", fontSize = 48.sp)
+                Text(
+                    text = when (selectedLanguage) {
+                        AppLanguage.SPANISH -> "Aún no hay datos estadísticos"
+                        AppLanguage.HINDI -> "कोई आंकड़ा उपलब्ध नहीं है"
+                        AppLanguage.GERMAN -> "Noch keine Statistikdaten vorhanden"
+                        AppLanguage.JAPANESE -> "統計データがありません"
+                        AppLanguage.PORTUGUESE -> "Sem dados estatísticos ainda"
+                        else -> "No statistics available yet"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Text(
+                    text = when (selectedLanguage) {
+                        AppLanguage.SPANISH -> "Crea hábitos y regístralos para ver tus tendencias."
+                        AppLanguage.HINDI -> "आंकड़े देखने के लिए पहले आदतें बनाएं और उन्हें ट्रैक करें।"
+                        AppLanguage.GERMAN -> "Erstelle Gewohnheiten und logge sie, um Trends zu sehen."
+                        AppLanguage.JAPANESE -> "習慣を作成し、記録を開始して統計を表示します。"
+                        AppLanguage.PORTUGUESE -> "Crie hábitos e registre-os para ver suas tendências."
+                        else -> "Create and check off habits to see your consistency trends."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+            }
+        }
+        return
+    }
+
+    // Calculations
+    var totalOpps = 0
+    var totalComps = 0
+    val domainOpps = mutableMapOf<LifeDomain, Int>()
+    val domainComps = mutableMapOf<LifeDomain, Int>()
+    
+    LifeDomain.values().forEach {
+        domainOpps[it] = 0
+        domainComps[it] = 0
+    }
+
+    val dayCompletions = mutableMapOf<Int, Int>() // 1 to 7 (Mon to Sun)
+    val dayOpportunities = mutableMapOf<Int, Int>()
+
+    val formatter = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE
+
+    logs.forEach { (dateStr, completions) ->
+        val date = try {
+            java.time.LocalDate.parse(dateStr, formatter)
+        } catch (e: Exception) {
+            null
+        }
+        val dayOfWeek = date?.dayOfWeek?.value // 1 to 7
+
+        habits.forEach { habit ->
+            if (habit.cadence.isApplicableOn(dateStr)) {
+                totalOpps++
+                domainOpps[habit.domain] = (domainOpps[habit.domain] ?: 0) + 1
+                if (dayOfWeek != null) {
+                    dayOpportunities[dayOfWeek] = (dayOpportunities[dayOfWeek] ?: 0) + 1
+                }
+
+                if (completions[habit.id] == true) {
+                    totalComps++
+                    domainComps[habit.domain] = (domainComps[habit.domain] ?: 0) + 1
+                    if (dayOfWeek != null) {
+                        dayCompletions[dayOfWeek] = (dayCompletions[dayOfWeek] ?: 0) + 1
+                    }
+                }
+            }
+        }
+    }
+
+    val successRate = if (totalOpps == 0) 0 else ((totalComps.toFloat() / totalOpps) * 100).toInt()
+
+    val domainScores = LifeDomain.values().associateWith { domain ->
+        val opps = domainOpps[domain] ?: 0
+        val comps = domainComps[domain] ?: 0
+        if (opps == 0) 0 else ((comps.toFloat() / opps) * 100).toInt()
+    }
+
+    // Vulnerable day calculation
+    var vulnerableDayName = ""
+    var vulnerableDayRate = 100
+    var hasWeakSpot = false
+
+    for (d in 1..7) {
+        val opps = dayOpportunities[d] ?: 0
+        val comps = dayCompletions[d] ?: 0
+        if (opps > 0) {
+            val rate = ((comps.toFloat() / opps) * 100).toInt()
+            if (rate < vulnerableDayRate) {
+                vulnerableDayRate = rate
+                vulnerableDayName = when (d) {
+                    1 -> when (selectedLanguage) { AppLanguage.SPANISH -> "Lunes"; AppLanguage.HINDI -> "सोमवार"; AppLanguage.GERMAN -> "Montag"; AppLanguage.JAPANESE -> "月曜日"; AppLanguage.PORTUGUESE -> "Segunda-feira"; else -> "Monday" }
+                    2 -> when (selectedLanguage) { AppLanguage.SPANISH -> "Martes"; AppLanguage.HINDI -> "मंगलवार"; AppLanguage.GERMAN -> "Dienstag"; AppLanguage.JAPANESE -> "火曜日"; AppLanguage.PORTUGUESE -> "Terça-feira"; else -> "Tuesday" }
+                    3 -> when (selectedLanguage) { AppLanguage.SPANISH -> "Miércoles"; AppLanguage.HINDI -> "बुधवार"; AppLanguage.GERMAN -> "Mittwoch"; AppLanguage.JAPANESE -> "水曜日"; AppLanguage.PORTUGUESE -> "Quarta-feira"; else -> "Wednesday" }
+                    4 -> when (selectedLanguage) { AppLanguage.SPANISH -> "Jueves"; AppLanguage.HINDI -> "गुरुवार"; AppLanguage.GERMAN -> "Donnerstag"; AppLanguage.JAPANESE -> "木曜日"; AppLanguage.PORTUGUESE -> "Quinta-feira"; else -> "Thursday" }
+                    5 -> when (selectedLanguage) { AppLanguage.SPANISH -> "Viernes"; AppLanguage.HINDI -> "शुक्रवार"; AppLanguage.GERMAN -> "Freitag"; AppLanguage.JAPANESE -> "金曜日"; AppLanguage.PORTUGUESE -> "Sexta-feira"; else -> "Friday" }
+                    6 -> when (selectedLanguage) { AppLanguage.SPANISH -> "Sábado"; AppLanguage.HINDI -> "शनिवार"; AppLanguage.GERMAN -> "Samstag"; AppLanguage.JAPANESE -> "土曜日"; AppLanguage.PORTUGUESE -> "Sábado"; else -> "Saturday" }
+                    else -> when (selectedLanguage) { AppLanguage.SPANISH -> "Domingo"; AppLanguage.HINDI -> "रविवार"; AppLanguage.GERMAN -> "Sonntag"; AppLanguage.JAPANESE -> "日曜日"; AppLanguage.PORTUGUESE -> "Domingo"; else -> "Sunday" }
+                }
+                hasWeakSpot = true
+            }
+        }
+    }
+
+    // Burnout Check
+    val lowDomain = domainScores.entries.find { it.value < 35 && (domainOpps[it.key] ?: 0) > 0 }
+    val highDomain = domainScores.entries.find { it.value >= 70 && (domainOpps[it.key] ?: 0) > 0 }
+    val isImbalanced = lowDomain != null && highDomain != null
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 90.dp)
+    ) {
+        // Monospace Header
+        item {
+            Column {
+                Text(
+                    text = when (selectedLanguage) {
+                        AppLanguage.SPANISH -> "Diagnóstico de Comportamiento"
+                        AppLanguage.HINDI -> "व्यवहार निदान और आंकड़े"
+                        AppLanguage.GERMAN -> "Verhaltensanalyse & Statistik"
+                        AppLanguage.JAPANESE -> "行動診断と分析"
+                        AppLanguage.PORTUGUESE -> "Diagnóstico Comportamental"
+                        else -> "Behavioral Diagnostic Console"
+                    },
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "STATUS: ONLINE • VERIFIED LOCALLY",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            }
+        }
+
+        // Section 1: KPI Grid
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Card 1: Total Habits
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("🧩", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${habits.size}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = when (selectedLanguage) {
+                                AppLanguage.SPANISH -> "Hábitos"
+                                AppLanguage.HINDI -> "आदतें"
+                                AppLanguage.GERMAN -> "Gewohnheiten"
+                                AppLanguage.JAPANESE -> "習慣数"
+                                AppLanguage.PORTUGUESE -> "Hábitos"
+                                else -> "Habits"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                // Card 2: Success Rate
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("🎯", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "$successRate%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (successRate >= 70) Color(0xFF2E7D32) else if (successRate >= 40) Color(0xFFEF6C00) else Color(0xFFE91E63)
+                        )
+                        Text(
+                            text = when (selectedLanguage) {
+                                AppLanguage.SPANISH -> "Consistencia"
+                                AppLanguage.HINDI -> "सफलता दर"
+                                AppLanguage.GERMAN -> "Erfolgsquote"
+                                AppLanguage.JAPANESE -> "達成率"
+                                AppLanguage.PORTUGUESE -> "Consistência"
+                                else -> "Success Rate"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                // Card 3: Total Logs
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("📝", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "$totalComps",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = when (selectedLanguage) {
+                                AppLanguage.SPANISH -> "Registros"
+                                AppLanguage.HINDI -> "कुल चेक"
+                                AppLanguage.GERMAN -> "Logs"
+                                AppLanguage.JAPANESE -> "記録数"
+                                AppLanguage.PORTUGUESE -> "Registros"
+                                else -> "Checks"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Section 2: Imbalance / Burnout Alerts
+        if (isImbalanced && lowDomain != null && highDomain != null) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("⚠️", fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = when (selectedLanguage) {
+                                    AppLanguage.SPANISH -> "Desequilibrio de Vida Detectado"
+                                    AppLanguage.HINDI -> "संतुलन बिगड़ा हुआ है"
+                                    AppLanguage.GERMAN -> "Lebensbalance-Warnung"
+                                    AppLanguage.JAPANESE -> "生活バランスの警告"
+                                    AppLanguage.PORTUGUESE -> "Desequilíbrio de Vida Detectado"
+                                    else -> "Life Balance Imbalance"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                text = when (selectedLanguage) {
+                                    AppLanguage.SPANISH -> "Tu área ${lowDomain.key} está baja (${lowDomain.value}%) comparada con ${highDomain.key} (${highDomain.value}%). ¡Busca equilibrio!"
+                                    AppLanguage.HINDI -> "आपका ${lowDomain.key} क्षेत्र (${lowDomain.value}%) आपके ${highDomain.key} (${highDomain.value}%) की तुलना में कम है। संतुलन बनाएं!"
+                                    AppLanguage.GERMAN -> "Dein Bereich ${lowDomain.key} ist niedrig (${lowDomain.value}%) im Vergleich zu ${highDomain.key} (${highDomain.value}%). Schaffe Ausgleich!"
+                                    AppLanguage.JAPANESE -> "${lowDomain.key}エリア（${lowDomain.value}%）が、${highDomain.key}（${highDomain.value}%）に比べて低くなっています。バランスを見直しましょう。"
+                                    AppLanguage.PORTUGUESE -> "Sua área ${lowDomain.key} está baixa (${lowDomain.value}%) em comparação com ${highDomain.key} (${highDomain.value}%). Busque equilíbrio!"
+                                    else -> "Your ${lowDomain.key} domain is low (${lowDomain.value}%) compared to ${highDomain.key} (${highDomain.value}%). Adjust your focus."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 3: Streak Fragility / Vulnerability Check
+        if (hasWeakSpot && vulnerableDayRate < 70) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("🚨", fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = when (selectedLanguage) {
+                                    AppLanguage.SPANISH -> "Punto de Fragilidad de Racha"
+                                    AppLanguage.HINDI -> "कमज़ोर दिन की पहचान"
+                                    AppLanguage.GERMAN -> "Gewohnheits-Schwachstelle"
+                                    AppLanguage.JAPANESE -> "習慣の脆弱な曜日"
+                                    AppLanguage.PORTUGUESE -> "Ponto de Fragilidade de Streak"
+                                    else -> "Streak Fragility Diagnostic"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Text(
+                                text = when (selectedLanguage) {
+                                    AppLanguage.SPANISH -> "Los $vulnerableDayName son tus días más difíciles (${vulnerableDayRate}% de éxito). ¡Mantente alerta para salvar tu racha!"
+                                    AppLanguage.HINDI -> "$vulnerableDayName आपका सबसे कमजोर दिन है (${vulnerableDayRate}% सफलता)। स्ट्रीक बचाने के लिए तैयार रहें!"
+                                    AppLanguage.GERMAN -> "$vulnerableDayName ist dein schwächster Tag (${vulnerableDayRate}% Erfolg). Sei besonders wachsam, um deine Serie zu schützen!"
+                                    AppLanguage.JAPANESE -> "${vulnerableDayName}は一番継続が途切れやすい曜日です（達成率${vulnerableDayRate}%）。習慣を維持できるよう意識しましょう。"
+                                    AppLanguage.PORTUGUESE -> "As $vulnerableDayName são seus dias mais difíceis (${vulnerableDayRate}% de sucesso). Fique alerta para salvar seu streak!"
+                                    else -> "$vulnerableDayName is your weakest day ($vulnerableDayRate% completion). Be extra mindful to save your streaks!"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("🛡️", fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = when (selectedLanguage) {
+                                    AppLanguage.SPANISH -> "Escudo de Racha Activo"
+                                    AppLanguage.HINDI -> "स्ट्रीक सुरक्षा कवच सक्रिय"
+                                    AppLanguage.GERMAN -> "Serien-Schutzschild Aktiv"
+                                    AppLanguage.JAPANESE -> "シールド有効"
+                                    AppLanguage.PORTUGUESE -> "Escudo de Streak Ativo"
+                                    else -> "Streak Shield Active"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = when (selectedLanguage) {
+                                    AppLanguage.SPANISH -> "¡Tu consistencia semanal es alta en todos los días de registro! Sigue así."
+                                    AppLanguage.HINDI -> "सभी दिनों में आपकी स्थिरता बेहतरीन है! इसे ऐसे ही बनाए रखें।"
+                                    AppLanguage.GERMAN -> "Deine wöchentliche Konsistenz ist an allen Log-Tagen hoch! Weiter so."
+                                    AppLanguage.JAPANESE -> "全曜日で高い達成率が維持されています。素晴らしい調子です！"
+                                    AppLanguage.PORTUGUESE -> "Sua consistência semanal é alta em todos os dias de registro! Continue assim."
+                                    else -> "Your weekly consistency is solid across all log days! Keep tracking."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 4: Domain Mastery Scores (BURN INDEX)
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = when (selectedLanguage) {
+                            AppLanguage.SPANISH -> "Equilibrio por Áreas de Vida"
+                            AppLanguage.HINDI -> "जीवन क्षेत्रों का संतुलन"
+                            AppLanguage.GERMAN -> "Lebensbereiche-Balance"
+                            AppLanguage.JAPANESE -> "ライフエリアの分布"
+                            AppLanguage.PORTUGUESE -> "Equilíbrio por Áreas de Vida"
+                            else -> "Life Domain Consistency"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    LifeDomain.values().forEach { domain ->
+                        val score = domainScores[domain] ?: 0
+                        val barColor = when (domain) {
+                            LifeDomain.HEALTH -> Color(0xFF2E7D32)
+                            LifeDomain.PROFESSIONAL -> Color(0xFF1565C0)
+                            LifeDomain.PERSONAL -> Color(0xFFE91E63)
+                            LifeDomain.FAMILY -> Color(0xFFEF6C00)
+                        }
+                        val domainLabel = when (domain) {
+                            LifeDomain.HEALTH -> when (selectedLanguage) { AppLanguage.SPANISH -> "❤️ Salud"; AppLanguage.HINDI -> "❤️ स्वास्थ्य"; AppLanguage.GERMAN -> "❤️ Gesundheit"; AppLanguage.JAPANESE -> "❤️ 健康"; AppLanguage.PORTUGUESE -> "❤️ Saúde"; else -> "❤️ Health" }
+                            LifeDomain.PROFESSIONAL -> when (selectedLanguage) { AppLanguage.SPANISH -> "💼 Profesional"; AppLanguage.HINDI -> "💼 पेशेवर"; AppLanguage.GERMAN -> "💼 Beruf"; AppLanguage.JAPANESE -> "💼 仕事"; AppLanguage.PORTUGUESE -> "💼 Profissional"; else -> "💼 Professional" }
+                            LifeDomain.PERSONAL -> when (selectedLanguage) { AppLanguage.SPANISH -> "🧠 Personal"; AppLanguage.HINDI -> "🧠 व्यक्तिगत"; AppLanguage.GERMAN -> "🧠 Persönlich"; AppLanguage.JAPANESE -> "🧠 個人"; AppLanguage.PORTUGUESE -> "🧠 Pessoal"; else -> "🧠 Personal" }
+                            LifeDomain.FAMILY -> when (selectedLanguage) { AppLanguage.SPANISH -> "👪 Familia"; AppLanguage.HINDI -> "👪 परिवार"; AppLanguage.GERMAN -> "👪 Familie"; AppLanguage.JAPANESE -> "👪 家族"; AppLanguage.PORTUGUESE -> "👪 Família"; else -> "👪 Family" }
+                        }
+
+                        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(domainLabel, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                                Text("$score%", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = barColor)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { score.toFloat() / 100f },
+                                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                color = barColor,
+                                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 5: Habit Details Ledger (Monospace Table View)
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = when (selectedLanguage) {
+                            AppLanguage.SPANISH -> "Desglose por Hábito"
+                            AppLanguage.HINDI -> "आदतों का व्यक्तिगत विवरण"
+                            AppLanguage.GERMAN -> "Gewohnheitsübersicht"
+                            AppLanguage.JAPANESE -> "習慣ごとの統計"
+                            AppLanguage.PORTUGUESE -> "Detalhamento por Hábito"
+                            else -> "Habit Breakdown Ledger"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    habits.forEachIndexed { index, habit ->
+                        val stats = habit.getStreakStats(logs, uiState.selectedDate)
+                        val domainColor = when (habit.domain) {
+                            LifeDomain.HEALTH -> Color(0xFF2E7D32)
+                            LifeDomain.PROFESSIONAL -> Color(0xFF1565C0)
+                            LifeDomain.PERSONAL -> Color(0xFFE91E63)
+                            LifeDomain.FAMILY -> Color(0xFFEF6C00)
+                        }
+
+                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(domainColor)
+                                    )
+                                    Text(
+                                        text = habit.routineText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Text(
+                                    text = "🔥 ${stats.currentStreak} / Max ${stats.longestStreak}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Cue: ${habit.cueText}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "Success: ${stats.completionPercentage}%",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (index < habits.size - 1) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                            }
+                        }
+                    }
+                }
             }
         }
     }

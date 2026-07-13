@@ -96,20 +96,31 @@ class HabitReminderReceiver : BroadcastReceiver() {
                             db.close()
                             
                             if (incompleteCount > 0) {
-                                if (type == "morning") {
-                                    showNotification(
-                                        context,
-                                        999,
-                                        "Morning Habit Review",
-                                        "You have $incompleteCount incomplete habits today. Keep your streaks alive!"
-                                    )
-                                } else {
-                                    showNotification(
-                                        context,
-                                        998,
-                                        "Evening Habit Tracker",
-                                        "Don't forget to log your habits! $incompleteCount tasks are still outstanding."
-                                    )
+                                when (type) {
+                                    "morning" -> {
+                                        showNotification(
+                                            context,
+                                            999,
+                                            "Morning Habit Review",
+                                            "You have $incompleteCount incomplete habits today. Keep your streaks alive!"
+                                        )
+                                    }
+                                    "afternoon" -> {
+                                        showNotification(
+                                            context,
+                                            997,
+                                            "Running low today?",
+                                            "Keep your habits on! You have $incompleteCount habits left to complete."
+                                        )
+                                    }
+                                    else -> {
+                                        showNotification(
+                                            context,
+                                            998,
+                                            "Evening Habit Tracker",
+                                            "Don't forget to log your habits! $incompleteCount tasks are still outstanding."
+                                        )
+                                    }
                                 }
                             }
                         } catch (e: Exception) {
