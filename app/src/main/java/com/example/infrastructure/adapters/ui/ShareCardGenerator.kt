@@ -98,7 +98,7 @@ object ShareCardGenerator {
         paint.isAntiAlias = true
         paint.color = mutedColor
         paint.textSize = 20f
-        canvas.drawText("Verified Locally • sudegoraankit/habitengine", 60f, 530f, paint)
+        canvas.drawText("Verified Locally • SudegoraAnkit/HabitEngine", 60f, 530f, paint)
 
         return saveBitmapToMediaStore(context, bitmap)
     }
