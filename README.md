@@ -5,7 +5,7 @@
 
 > **Quantify Your Daily Energy, Habits, and Discipline into Clean, Immutable Data. Designed for Devs, Built Offline-First.**
 
-HabitEngine is a highly optimized, beautifully designed, distraction-free, and privacy-focused habit loop tracker and productivity logger. It is tailored specifically for developers, scientists, and high-performance individuals who want to stop setting vague resolutions and start tracking progress with computer-science precision.
+HabitEngine is a highly optimized, beautifully designed, distraction-free, and privacy-focused habit loop tracker and productivity logger. It is tailored specifically for developers, scientists, and data-driven individuals who want to track their daily habits, cognitive state, and life balance without intrusive tracking, ads, or cloud subscriptions.
 
 | Live Status | Platform | Build System | Database | Architecture | License |
 |---|---|---|---|---|---|
@@ -38,22 +38,172 @@ Here is a glimpse of the minimalist, dark-mode dashboard with its customizable w
 
 ---
 
+## 🏗️ System Architecture
+
+HabitEngine follows a **Hexagonal Architecture (Ports & Adapters)** pattern with strict separation of concerns. This ensures the core business logic remains independent of frameworks and infrastructure details.
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         🎨 PRESENTATION LAYER                              │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  Jetpack Compose UI                                                  │ │
+│  │  ├─ DashboardScreen (Main Dashboard)                                 │ │
+│  │  ├─ HabitCard (Interactive Habit Cards)                              │ │
+│  │  ├─ CognitiveLogger (Activity Terminal)                              │ │
+│  │  ├─ Particle Canvas (Dopamine Sparkles)                              │ │
+│  │  └─ Theme System (Material 3 + Dark Mode)                            │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────┬──────────────────────────────────────────────┘
+                                 │ User Interactions
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          🎮 STATE MANAGEMENT LAYER                          │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  HabitViewModel (MVVM ViewModel)                                      │ │
+│  │  ├─ Manages UI State (StateFlow)                                      │ │
+│  │  ├─ Handles User Events                                               │ │
+│  │  ├─ Coordinates with StoragePort                                      │ │
+│  │  ├─ Combines Reactive Streams                                         │ │
+│  │  └─ Launches Coroutines (viewModelScope)                              │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────┬──────────────────────────────────────────────┘
+                                 │ Storage Operations
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        🔌 PORTS & INTERFACE LAYER                           │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  StoragePort (Interface - Defines Contract)                          │ │
+│  │  ├─ loadTrackerState(): Flow<TrackerState>                           │ │
+│  │  ├─ saveHabit(habit: Habit)                                          │ │
+│  │  ├─ toggleLogEntry(date, habitId, status)                            │ │
+│  │  ├─ deleteHabit(habitId)                                             │ │
+│  │  ├─ loadActivityLogs(): Flow<List<ActivityLog>>                       │ │
+│  │  ├─ saveActivityLog(log: ActivityLog)                                │ │
+│  │  └─ restoreBackup(habits, logs, activityLogs)                        │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────┬──────────────────────────────────────────────┘
+                                 │ Implementation
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       💾 INFRASTRUCTURE LAYER (Adapters)                    │
+│                                                                             │
+│  ┌──────────────────────────────┐  ┌──────────────────────────────────┐   │
+│  │   Database Adapter           │  │   (Future: Other Adapters)       │   │
+│  │   (RoomStorageAdapter)       │  │   ├─ Cloud Sync Adapter         │   │
+│  │   ├─ Room ORM Mapping        │  │   ├─ Analytics Adapter          │   │
+│  │   ├─ Transaction Safety      │  │   └─ Notification Adapter       │   │
+│  │   ├─ IO Dispatcher Handling  │  │                                 │   │
+│  │   └─ Data Serialization      │  └──────────────────────────────────┘   │
+│  │       (JSON/CSV Export)      │                                         │
+│  └──────────────────────────────┘                                         │
+└────────────────────────────────┬──────────────────────────────────────────────┘
+                                 │
+                                 ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         📊 PERSISTENCE LAYER                                │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  SQLite Database (Room Entities)                                      │ │
+│  │  ├─ HabitEntity (Habits Table)                                        │ │
+│  │  ├─ LogEntity (Completion Logs Table)                                 │ │
+│  │  ├─ ActivityLogEntity (Cognitive Logs Table)                          │ │
+│  │  └─ DAOs (Data Access Objects)                                        │ │
+│  │     ├─ HabitDao                                                       │ │
+│  │     ├─ LogDao                                                         │ │
+│  │     └─ ActivityLogDao                                                 │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      💎 CORE DOMAIN LAYER (Pure Business Logic)             │
+│                         (Independent of all frameworks)                     │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │  Domain Models (Models.kt)                                           │ │
+│  │  ├─ Habit (Cue, Routine, Reward, LifeDomain, Cadence)               │ │
+│  │  ├─ LifeDomain (Health, Professional, Personal, Family)             │ │
+│  │  ├─ Cadence (Daily, Weekdays, Weekends, Monthly)                    │ │
+│  │  ├─ ActivityLog (Focus Category, Duration, Timestamp)               │ │
+│  │  ├─ DayLog (Date -> Habit Completion Map)                           │ │
+│  │  └─ TrackerState (Aggregate of all habits & logs)                   │ │
+│  │                                                                      │ │
+│  │  Pure Business Rules (Extension Functions)                          │ │
+│  │  ├─ Cadence.isApplicableOn(dateStr): Boolean                        │ │
+│  │  ├─ Habit.isCompletedOn(dateStr, logs): Boolean                     │ │
+│  │  ├─ CalculateStreakCount(logs): Int                                 │ │
+│  │  └─ ComputeEfficiencyMetrics(activityLogs): Metrics                 │ │
+│  │                                                                      │ │
+│  │  ✅ NO Android dependencies                                          │ │
+│  │  ✅ NO Framework dependencies (Room, Compose, etc.)                 │ │
+│  │  ✅ 100% Testable Pure Functions                                    │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow: User Interaction Example
+
+When a user taps a habit checkbox to mark it complete:
+
+```
+User Tap on Habit Card
+        ↓
+DashboardScreen Captures Click Event (x, y coordinates)
+        ↓
+toggleHabitCompletion(habitId, currentStatus, x, y)
+        ↓
+HabitViewModel Launches viewModelScope Coroutine
+        ↓
+StoragePort.toggleLogEntry(selectedDate, habitId, !currentStatus)
+        ↓
+RoomStorageAdapter Executes on Dispatchers.IO
+        ↓
+Room ORM Inserts/Replaces LogEntity in SQLite
+        ↓
+SQLite Emits Updated Flow<List<LogEntity>>
+        ↓
+RoomStorageAdapter Maps to Flow<TrackerState>
+        ↓
+HabitViewModel Combines Streams → Updates StateFlow<MainUiState>
+        ↓
+DashboardScreen Re-composes
+        ↓
+UI Renders Updated Habit Status + Dopamine Particle Animation
+```
+
+### Key Architectural Benefits
+
+| Benefit | Implementation |
+|---------|----------------|
+| **Testability** | Core domain is framework-free; pure functions can be tested in isolation |
+| **Maintainability** | Clear separation of concerns; changes to UI don't affect database logic |
+| **Scalability** | New adapters can be added without modifying core domain (Cloud sync, analytics, etc.) |
+| **Dependency Inversion** | Infrastructure depends on core; core never depends on frameworks |
+| **Offline-First** | StoragePort abstraction allows seamless local→cloud transition |
+| **Performance** | IO operations isolated on Dispatchers.IO; Main thread never blocked |
+
+---
+
 ## 🎯 App Purpose
 
 Traditional habit trackers are filled with intrusive ads, monthly subscriptions, and cloud synchronization that compromises personal privacy. HabitEngine is different. 
 
-Its **primary purpose** is to provide a fully offline, zero-friction, highly customizable visual space where you can create micro-triggers, track them consistently using flexible schedules, and maintain high visual cognitive reinforcement (Dopamine Sparkles & Heatwave Streak Indicators).
+Its **primary purpose** is to provide a fully offline, zero-friction, highly customizable visual space where you can create micro-triggers, track them consistently using flexible schedules, and maintain a complete searchable log of your daily habits and cognitive state.
 
 ### 🎁 Value to the User
 
-1. **Psychologically Backed Habit Loop**: Follows the *Cue ➔ Action ➔ Reward* blueprint. Setup actions tied to existing triggers (e.g., "When I sit down with my morning coffee, I will write 1 file").
-2. **Four Dimensional Life Balance**: Forces you to stay balanced across 4 essential areas: **Health**, **Professional**, **Personal**, and **Family**. No more burning out in one area while losing another.
+1. **Psychologically Backed Habit Loop**: Follows the *Cue ➔ Action ➔ Reward* blueprint. Setup actions tied to existing triggers (e.g., "When I sit down with my morning coffee, I will write 1 page").
+2. **Four Dimensional Life Balance**: Forces you to stay balanced across 4 essential areas: **Health**, **Professional**, **Personal**, and **Family**. No more burning out in one area while losing vitality in another.
 3. **Interactive Cognitive Logger (Activity Terminal)**: Register raw workflow, focuses, ambient states, or mental state logs on-the-fly. Keep an exact data catalog of your daily focus and distractions.
 4. **Absolute Privacy & Control**: 100% offline. Features instant, high-speed CSV or JSON database backup & import right inside the app settings. No telemetry, no external servers.
 
 ### 🛠️ Value to the Developer
 
-1. **Pragmatic Material 3 Compose Layout**: Highly complex yet fully reactive Jetpack Compose setup demonstrating custom canvas particle systems, animated expandable dialogs, multi-language system state, and clean, modern themes.
+1. **Pragmatic Material 3 Compose Layout**: Highly complex yet fully reactive Jetpack Compose setup demonstrating custom canvas particle systems, animated expandable dialogs, multi-language system support, and theme orchestration.
 2. **Modern Architecture**: Demonstrates explicit division of concerns using Model-View-ViewModel (MVVM) and Android Clean Architecture.
 3. **Local DB with Room + KSP**: Exemplary database implementation of relations, destructive fallback sandbox strategies, and transaction safety.
 4. **Agile Localization**: Modular enum-based dictionary structure (`AppLanguage`) supporting 6 major global developer languages seamlessly.
@@ -94,11 +244,11 @@ habitengine/
 └── .env                                # Key secrets configuration for compiling
 ```
 
-- **[Core Domain Models](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/domain/Models.kt)**: Houses the central definitions of habit loops (`Habit`, `LifeDomain`, `Cadence`) and focus logs (`ActivityLog`).
-- **[Storage Port Interface](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/ports/StoragePort.kt)**: Decoupled boundary declaring how the UI fetches data and updates storage.
-- **[Room SQLite Adapter](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/database/RoomStorageAdapter.kt)**: SQLite implementation of the StoragePort using Jetpack Room.
-- **[ViewModel State Controller](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/HabitViewModel.kt)**: Combines DB Flow updates and theme preferences into a single UI State stream.
-- **[Compose UI Views](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/DashboardScreen.kt)**: Draws the user interface, custom sparklines, regional flags dictionary, and canvas sparkles.
+- **[Core Domain Models](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/domain/Models.kt)**: Houses the central definitions of habit loops (`Habit`, `LifeDomain`, `Cadence`, `ActivityLog`).
+- **[Storage Port Interface](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/ports/StoragePort.kt)**: Decoupled boundary declaring how the UI fetches data and updates storage independently of implementation.
+- **[Room SQLite Adapter](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/database/RoomStorageAdapter.kt)**: SQLite implementation of the StoragePort using Room ORM.
+- **[ViewModel State Controller](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/HabitViewModel.kt)**: Combines DB Flow updates and theme preferences into reactive UI state.
+- **[Compose UI Views](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/DashboardScreen.kt)**: Draws the user interface, custom sparklines, regional flows, and particle effects.
 
 ---
 
@@ -133,7 +283,7 @@ The compiled APK will be output beautifully at:
 This project is fully open source under the developer-friendly **[MIT License](LICENSE)**. 
 
 ### Why is HabitEngine Open Source?
-We believe that personal growth tools should be transparent, personal, and owned entirely by the builder. Developers worldwide can audit the code, submit pull requests to improve performance, add tracking widgets, or fork/re-design the engine according to their specific productivity methodology.
+We believe that personal growth tools should be transparent, personal, and owned entirely by the builder. Developers worldwide can audit the code, submit pull requests to improve performance, add new cadences, or extend the localization system.
 
 ---
 
