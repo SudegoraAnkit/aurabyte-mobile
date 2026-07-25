@@ -44,147 +44,116 @@ HabitEngine follows a **Hexagonal Architecture (Ports & Adapters)** pattern with
 
 ### Architecture Diagram
 
-```
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                         🎨 PRESENTATION LAYER                              ┃
-┃                                                                             ┃
-┃  ┌─────────────────────────────────────────────────────────────────────┐  ┃
-┃  │ 🎬 Jetpack Compose UI                                              │  ┃
-┃  │  ├─ 📱 DashboardScreen (Main Dashboard)                            │  ┃
-┃  │  ├─ 🎴 HabitCard (Interactive Habit Cards)                         │  ┃
-┃  │  ├─ 📝 CognitiveLogger (Activity Terminal)                         │  ┃
-┃  │  ├─ ✨ Particle Canvas (Dopamine Sparkles)                         │  ┃
-┃  │  └─ 🎨 Theme System (Material 3 + Dark Mode)                       │  ┃
-┃  └─────────────────────────────────────────────────────────────────────┘  ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┬━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-                                 │ 👆 User Interactions
-                                 ↓
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                          🎮 STATE MANAGEMENT LAYER                          ┃
-┃                                                                             ┃
-┃  ┌─────────────────────────────────────────────────────────────────────┐  ┃
-┃  │ 🔄 HabitViewModel (MVVM ViewModel)                                  │  ┃
-┃  │  ├─ 📊 Manages UI State (StateFlow)                                 │  ┃
-┃  │  ├─ ⚙️ Handles User Events                                          │  ┃
-┃  │  ├─ 🔗 Coordinates with StoragePort                                 │  ┃
-┃  │  ├─ 🌊 Combines Reactive Streams                                    │  ┃
-┃  │  └─ ⚡ Launches Coroutines (viewModelScope)                         │  ┃
-┃  └─────────────────────────────────────────────────────────────────────┘  ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┬━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-                                 │ 💾 Storage Operations
-                                 ↓
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                        🔌 PORTS & INTERFACE LAYER                           ┃
-┃                                                                             ┃
-┃  ┌─────────────────────────────────────────────────────────────────────┐  ┃
-┃  │ 🎯 StoragePort (Interface - Defines Contract)                       │  ┃
-┃  │  ├─ 📖 loadTrackerState(): Flow<TrackerState>                       │  ┃
-┃  │  ├─ 💾 saveHabit(habit: Habit)                                      │  ┃
-┃  │  ├─ ✔️ toggleLogEntry(date, habitId, status)                        │  ┃
-┃  │  ├─ 🗑️ deleteHabit(habitId)                                         │  ┃
-┃  │  ├─ 📋 loadActivityLogs(): Flow<List<ActivityLog>>                   │  ┃
-┃  │  ├─ 📝 saveActivityLog(log: ActivityLog)                            │  ┃
-┃  │  └─ ♻️ restoreBackup(habits, logs, activityLogs)                    │  ┃
-┃  └─────────────────────────────────────────────────────────────────────┘  ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┬━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-                                 │ 🔧 Implementation
-                                 ↓
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                       💾 INFRASTRUCTURE LAYER (Adapters)                    ┃
-┃                                                                             ┃
-┃  ┌──────────────────────────────┐  ┌──────────────────────────────────┐   ┃
-┃  │ 🗄️ Database Adapter          │  │ 🔮 Future Adapters             │   ┃
-┃  │ (RoomStorageAdapter)         │  │ ├─ ☁️ Cloud Sync Adapter       │   ┃
-┃  │ ├─ 🧩 Room ORM Mapping       │  │ ├─ 📊 Analytics Adapter        │   ┃
-┃  │ ├─ 🔐 Transaction Safety     │  │ └─ 🔔 Notification Adapter     │   ┃
-┃  │ ├─ ⚙️ IO Dispatcher Handling │  │                                │   ┃
-┃  │ └─ 🔄 Data Serialization     │  └──────────────────────────────────┘   ┃
-┃  │    (JSON/CSV Export)         │                                         ┃
-┃  └──────────────────────────────┘                                         ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┬━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-                                 │
-                                 ↓
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                         📊 PERSISTENCE LAYER                                ┃
-┃                                                                             ┃
-┃  ┌─────────────────────────────────────────────────────────────────────┐  ┃
-┃  │ 🗄️ SQLite Database (Room Entities)                                  │  ┃
-┃  │  ├─ 📑 HabitEntity (Habits Table)                                   │  ┃
-┃  │  ├─ 📋 LogEntity (Completion Logs Table)                            │  ┃
-┃  │  ├─ 📝 ActivityLogEntity (Cognitive Logs Table)                     │  ┃
-┃  │  └─ 🔑 DAOs (Data Access Objects)                                   │  ┃
-┃  │     ├─ 🎯 HabitDao                                                  │  ┃
-┃  │     ├─ 📊 LogDao                                                    │  ┃
-┃  │     └─ 📝 ActivityLogDao                                            │  ┃
-┃  └─────────────────────────────────────────────────────────────────────┘  ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```mermaid
+graph TB
+    subgraph Presentation["🎨 PRESENTATION LAYER"]
+        UI["🎮 Jetpack Compose UI<br/>├─ DashboardScreen<br/>├─ HabitCard<br/>├─ CognitiveLogger<br/>├─ Particle Canvas<br/>└─ Theme System"]
+    end
 
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                      💎 CORE DOMAIN LAYER (Pure Business Logic)             ┃
-┃                         (Independent of all frameworks)                     ┃
-┃                                                                             ┃
-┃  ┌─────────────────────────────────────────────────────────────────────┐  ┃
-┃  │ 📦 Domain Models (Models.kt)                                        │  ┃
-┃  │  ├─ 🎯 Habit (Cue, Routine, Reward, LifeDomain, Cadence)           │  ┃
-┃  │  ├─ 🏥 LifeDomain (Health, Professional, Personal, Family)         │  ┃
-┃  │  ├─ 📅 Cadence (Daily, Weekdays, Weekends, Monthly)                │  ┃
-┃  │  ├─ ⏱️ ActivityLog (Focus Category, Duration, Timestamp)           │  ┃
-┃  │  ├─ 📆 DayLog (Date -> Habit Completion Map)                       │  ┃
-┃  │  └─ 📊 TrackerState (Aggregate of all habits & logs)               │  ┃
-┃  │                                                                      │  ┃
-┃  │ ⚙️ Pure Business Rules (Extension Functions)                        │  ┃
-┃  │  ├─ 📅 Cadence.isApplicableOn(dateStr): Boolean                    │  ┃
-┃  │  ├─ ✔️ Habit.isCompletedOn(dateStr, logs): Boolean                 │  ┃
-┃  │  ├─ 🔥 CalculateStreakCount(logs): Int                             │  ┃
-┃  │  └─ 📈 ComputeEfficiencyMetrics(activityLogs): Metrics             │  ┃
-┃  │                                                                      │  ┃
-┃  │  ✅ NO Android dependencies                                          │  ┃
-┃  │  ✅ NO Framework dependencies (Room, Compose, etc.)                 │  ┃
-┃  │  ✅ 100% Testable Pure Functions                                    │  ┃
-┃  └─────────────────────────────────────────────────────────────────────┘  ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+    subgraph StateManagement["🎮 STATE MANAGEMENT LAYER"]
+        VM["📊 HabitViewModel<br/>├─ UI State Flow<br/>├─ Event Handler<br/>├─ Coroutines<br/>└─ Stream Combiner"]
+    end
+
+    subgraph Ports["🔌 PORTS & INTERFACE LAYER"]
+        SP["📋 StoragePort Interface<br/>├─ loadTrackerState()<br/>├─ saveHabit()<br/>├─ toggleLogEntry()<br/>├─ deleteHabit()<br/>├─ loadActivityLogs()<br/>├─ saveActivityLog()<br/>└─ restoreBackup()"]
+    end
+
+    subgraph Infrastructure["💾 INFRASTRUCTURE LAYER"]
+        DB_ADAPTER["🗂️ RoomStorageAdapter<br/>├─ Entity Mapping<br/>├─ IO Dispatcher<br/>└─ Serialization"]
+        FUTURE["🔮 Future Adapters<br/>├─ Cloud Sync<br/>├─ Analytics<br/>└─ Notifications"]
+    end
+
+    subgraph Persistence["📊 PERSISTENCE LAYER"]
+        SQLITE["🗄️ SQLite Database<br/>├─ HabitEntity<br/>├─ LogEntity<br/>├─ ActivityLogEntity<br/>└─ DAOs"]
+    end
+
+    subgraph Domain["💎 CORE DOMAIN LAYER<br/>(Framework Independent)"]
+        MODELS["📦 Domain Models<br/>├─ Habit<br/>├─ LifeDomain<br/>├─ Cadence<br/>├─ ActivityLog<br/>└─ TrackerState"]
+        RULES["⚙️ Pure Business Rules<br/>├─ isApplicableOn()<br/>├─ isCompletedOn()<br/>├─ calculateStreak()<br/>└─ computeMetrics()"]
+    end
+
+    UI -->|User Events| VM
+    VM -->|Storage Ops| SP
+    SP -->|Implementation| DB_ADAPTER
+    DB_ADAPTER -->|Read/Write| SQLITE
+    SP -.->|Future| FUTURE
+    DB_ADAPTER -->|Domain Mapping| MODELS
+    RULES -->|Uses| MODELS
+    MODELS -->|Pure Logic| RULES
+
+    style Presentation fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    style StateManagement fill:#4ECDC4,stroke:#0B9884,color:#fff
+    style Ports fill:#FFE66D,stroke:#FF8C42,color:#000
+    style Infrastructure fill:#95E1D3,stroke:#38A092,color:#000
+    style Persistence fill:#6C5CE7,stroke:#5F27CD,color:#fff
+    style Domain fill:#00B894,stroke:#006B5F,color:#fff
 ```
 
-### 📊 Data Flow: User Interaction Example
+### Data Flow: User Interaction Example
 
-When a user taps a habit checkbox to mark it complete:
+```mermaid
+sequenceDiagram
+    actor User as 👤 User
+    participant UI as 🎨 DashboardScreen
+    participant VM as 📊 HabitViewModel
+    participant Port as 🔌 StoragePort
+    participant Adapter as 🗂️ RoomStorageAdapter
+    participant DB as 🗄️ SQLite
 
-```
-👤 User Tap on Habit Card
-        ↓
-📱 DashboardScreen Captures Click Event (x, y coordinates)
-        ↓
-⚡ toggleHabitCompletion(habitId, currentStatus, x, y)
-        ↓
-🔄 HabitViewModel Launches viewModelScope Coroutine
-        ↓
-🔌 StoragePort.toggleLogEntry(selectedDate, habitId, !currentStatus)
-        ↓
-🗄️ RoomStorageAdapter Executes on Dispatchers.IO
-        ↓
-💾 Room ORM Inserts/Replaces LogEntity in SQLite
-        ↓
-📝 SQLite Emits Updated Flow<List<LogEntity>>
-        ↓
-🔀 RoomStorageAdapter Maps to Flow<TrackerState>
-        ↓
-📊 HabitViewModel Combines Streams → Updates StateFlow<MainUiState>
-        ↓
-🎨 DashboardScreen Re-composes
-        ↓
-✨ UI Renders Updated Habit Status + Dopamine Particle Animation
+    User->>UI: 🖱️ Tap Habit Checkbox
+    UI->>VM: 📤 toggleHabitCompletion(habitId, status)
+    VM->>VM: ⏳ Launch Coroutine
+    VM->>Port: 📋 toggleLogEntry(date, habitId)
+    Port->>Adapter: 🔄 Implementation Call
+    Adapter->>Adapter: ⚡ Switch to Dispatchers.IO
+    Adapter->>DB: 💾 Insert/Replace LogEntity
+    DB->>DB: 📝 Emit Updated Flow
+    DB->>Adapter: 📊 Return List<LogEntity>
+    Adapter->>VM: 🔄 Map to TrackerState
+    VM->>VM: 🎯 Update StateFlow<MainUiState>
+    VM->>UI: 📡 Reactive Update
+    UI->>User: ✨ Re-render + Animation
 ```
 
-### 🎯 Key Architectural Benefits
+### Architecture Layers Breakdown
 
-| 🏆 Benefit | 🔧 Implementation |
+```mermaid
+graph LR
+    A["🎨 Presentation<br/>(Compose UI)"]
+    B["🎮 State Mgmt<br/>(ViewModel)"]
+    C["🔌 Ports<br/>(Interfaces)"]
+    D["💾 Adapters<br/>(Implementation)"]
+    E["📊 Persistence<br/>(SQLite)"]
+    F["💎 Domain<br/>(Pure Logic)"]
+
+    A -->|depends on| B
+    B -->|depends on| C
+    C -->|depends on| F
+    D -->|implements| C
+    D -->|depends on| F
+    E -->|accessed by| D
+    F -->|no dependencies| A
+    F -->|no dependencies| D
+    F -->|no dependencies| E
+
+    style A fill:#FF6B6B,stroke:#C92A2A,color:#fff
+    style B fill:#4ECDC4,stroke:#0B9884,color:#fff
+    style C fill:#FFE66D,stroke:#FF8C42,color:#000
+    style D fill:#95E1D3,stroke:#38A092,color:#000
+    style E fill:#6C5CE7,stroke:#5F27CD,color:#fff
+    style F fill:#00B894,stroke:#006B5F,color:#fff
+```
+
+### Key Architectural Benefits
+
+| Benefit | Implementation |
 |---------|----------------|
-| 🧪 **Testability** | Core domain is framework-free; pure functions can be tested in isolation |
-| 🛠️ **Maintainability** | Clear separation of concerns; changes to UI don't affect database logic |
-| 📈 **Scalability** | New adapters can be added without modifying core domain (Cloud sync, analytics, etc.) |
-| 🔄 **Dependency Inversion** | Infrastructure depends on core; core never depends on frameworks |
-| 📱 **Offline-First** | StoragePort abstraction allows seamless local→cloud transition |
-| ⚡ **Performance** | IO operations isolated on Dispatchers.IO; Main thread never blocked |
+| **🧪 Testability** | Core domain is framework-free; pure functions can be tested in isolation |
+| **🔧 Maintainability** | Clear separation of concerns; changes to UI don't affect database logic |
+| **📈 Scalability** | New adapters can be added without modifying core domain (Cloud sync, analytics, etc.) |
+| **⬅️ Dependency Inversion** | Infrastructure depends on core; core never depends on frameworks |
+| **📴 Offline-First** | StoragePort abstraction allows seamless local→cloud transition |
+| **⚡ Performance** | IO operations isolated on Dispatchers.IO; Main thread never blocked |
 
 ---
 
@@ -196,17 +165,17 @@ Its **primary purpose** is to provide a fully offline, zero-friction, highly cus
 
 ### 🎁 Value to the User
 
-1. 🧠 **Psychologically Backed Habit Loop**: Follows the *Cue ➔ Action ➔ Reward* blueprint. Setup actions tied to existing triggers (e.g., "When I sit down with my morning coffee, I will write 1 page").
-2. ⚖️ **Four Dimensional Life Balance**: Forces you to stay balanced across 4 essential areas: **Health**, **Professional**, **Personal**, and **Family**. No more burning out in one area while losing vitality in another.
-3. 📝 **Interactive Cognitive Logger (Activity Terminal)**: Register raw workflow, focuses, ambient states, or mental state logs on-the-fly. Keep an exact data catalog of your daily focus and distractions.
-4. 🔒 **Absolute Privacy & Control**: 100% offline. Features instant, high-speed CSV or JSON database backup & import right inside the app settings. No telemetry, no external servers.
+1. **Psychologically Backed Habit Loop**: Follows the *Cue ➔ Action ➔ Reward* blueprint. Setup actions tied to existing triggers (e.g., "When I sit down with my morning coffee, I will write 1 page").
+2. **Four Dimensional Life Balance**: Forces you to stay balanced across 4 essential areas: **Health**, **Professional**, **Personal**, and **Family**. No more burning out in one area while losing vitality in another.
+3. **Interactive Cognitive Logger (Activity Terminal)**: Register raw workflow, focuses, ambient states, or mental state logs on-the-fly. Keep an exact data catalog of your daily focus and distractions.
+4. **Absolute Privacy & Control**: 100% offline. Features instant, high-speed CSV or JSON database backup & import right inside the app settings. No telemetry, no external servers.
 
 ### 🛠️ Value to the Developer
 
-1. 🎨 **Pragmatic Material 3 Compose Layout**: Highly complex yet fully reactive Jetpack Compose setup demonstrating custom canvas particle systems, animated expandable dialogs, multi-language system support, and theme orchestration.
-2. 🏗️ **Modern Architecture**: Demonstrates explicit division of concerns using Model-View-ViewModel (MVVM) and Android Clean Architecture.
-3. 🗄️ **Local DB with Room + KSP**: Exemplary database implementation of relations, destructive fallback sandbox strategies, and transaction safety.
-4. 🌍 **Agile Localization**: Modular enum-based dictionary structure (`AppLanguage`) supporting 6 major global developer languages seamlessly.
+1. **Pragmatic Material 3 Compose Layout**: Highly complex yet fully reactive Jetpack Compose setup demonstrating custom canvas particle systems, animated expandable dialogs, multi-language system support, and theme orchestration.
+2. **Modern Architecture**: Demonstrates explicit division of concerns using Model-View-ViewModel (MVVM) and Android Clean Architecture.
+3. **Local DB with Room + KSP**: Exemplary database implementation of relations, destructive fallback sandbox strategies, and transaction safety.
+4. **Agile Localization**: Modular enum-based dictionary structure (`AppLanguage`) supporting 6 major global developer languages seamlessly.
 
 ---
 
@@ -217,23 +186,23 @@ HabitEngine is structured around Hexagonal Architecture (Ports and Adapters), se
 ```
 habitengine/
 ├── 📚 docs/                               # Developer documentation suite
-│   ├── 📄 01_project_overview.md          # Motivations & core value loop
-│   ├── 📄 02_requirements_use_cases.md    # Requirements & user flows
-│   ├── 📄 03_system_architecture.md       # Hexagonal Architecture layout
-│   ├── 📄 04_data_model_apis.md           # SQLite schemas & backup payload schemas
-│   ├── 📄 05_implementation_details.md    # Compose particles, localizations, cadence
-│   ├── 📄 06_challenges_solutions.md      # In-memory aggregations & custom serializations
-│   ├── 📄 07_incident_postmortems.md      # Postmortems (Gradle, Keystores, Secrets Plugin)
-│   └── 📄 08_personal_learnings.md        # Technical developer learnings
+│   ├── 01_project_overview.md             # Motivations & core value loop
+│   ├── 02_requirements_use_cases.md       # Requirements & user flows
+│   ├── 03_system_architecture.md          # Hexagonal Architecture layout
+│   ├── 04_data_model_apis.md              # SQLite schemas & backup payload schemas
+│   ├── 05_implementation_details.md       # Compose particles, localizations, cadence
+│   ├── 06_challenges_solutions.md         # In-memory aggregations & custom serializations
+│   ├── 07_incident_postmortems.md         # Postmortems (Gradle, Keystores, Secrets Plugin)
+│   └── 08_personal_learnings.md           # Technical developer learnings
 │
-├── 📦 app/src/main/java/com/example/      # Main application source
+├── 📱 app/src/main/java/com/example/      # Main application source
 │   ├── 💎 core/                           # Pure Business Domain Layer
-│   │   ├── 📦 domain/                     # Entities & business rules (Models.kt)
-│   │   └── 🔌 ports/                      # Decouplers (StoragePort.kt interface)
+│   │   ├── domain/                        # Entities & business rules (Models.kt)
+│   │   └── ports/                         # Decouplers (StoragePort.kt interface)
 │   │
-│   ├── 🔧 infrastructure/adapters/        # Framework & Infrastructure Adapters
-│   │   ├── 🗄️ database/                   # Room SQLite persistence (RoomStorageAdapter.kt)
-│   │   └── 🎨 ui/                         # MVVM Jetpack Compose interface (DashboardScreen.kt)
+│   ├── 💾 infrastructure/adapters/        # Framework & Infrastructure Adapters
+│   │   ├── database/                      # Room SQLite persistence (RoomStorageAdapter.kt)
+│   │   └── ui/                            # MVVM Jetpack Compose interface (DashboardScreen.kt)
 │   │
 │   └── 🎨 ui/theme/                       # Presets for application color & typography
 │
@@ -244,11 +213,11 @@ habitengine/
 └── 🔐 .env                                # Key secrets configuration for compiling
 ```
 
-- **💎 [Core Domain Models](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/domain/Models.kt)**: Houses the central definitions of habit loops (`Habit`, `LifeDomain`, `Cadence`, `ActivityLog`).
-- **🔌 [Storage Port Interface](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/ports/StoragePort.kt)**: Decoupled boundary declaring how the UI fetches data and updates storage independently of implementation.
-- **🗄️ [Room SQLite Adapter](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/database/RoomStorageAdapter.kt)**: SQLite implementation of the StoragePort using Room ORM.
-- **🔄 [ViewModel State Controller](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/HabitViewModel.kt)**: Combines DB Flow updates and theme preferences into reactive UI state.
-- **🎨 [Compose UI Views](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/DashboardScreen.kt)**: Draws the user interface, custom sparklines, regional flows, and particle effects.
+- **[Core Domain Models](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/domain/Models.kt)**: Houses the central definitions of habit loops (`Habit`, `LifeDomain`, `Cadence`, `ActivityLog`).
+- **[Storage Port Interface](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/core/ports/StoragePort.kt)**: Decoupled boundary declaring how the UI fetches data and updates storage independently of implementation.
+- **[Room SQLite Adapter](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/database/RoomStorageAdapter.kt)**: SQLite implementation of the StoragePort using Room ORM.
+- **[ViewModel State Controller](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/HabitViewModel.kt)**: Combines DB Flow updates and theme preferences into reactive UI state.
+- **[Compose UI Views](file:///d:/2026/Project/HabitEngine/app/src/main/java/com/example/infrastructure/adapters/ui/DashboardScreen.kt)**: Draws the user interface, custom sparklines, regional flows, and particle effects.
 
 ---
 
@@ -256,9 +225,9 @@ habitengine/
 
 ### 📋 Prerequisites
 
-- 🤖 **Android Studio Koala / Ladybug** (or later)
-- ☕ **JDK 17 or JDK 21** configured in your Gradle environment
-- 📱 **Android Device / Emulator** running SDK 24 (Nougat) or higher
+- **Android Studio Koala / Ladybug** (or later)
+- **JDK 17 or JDK 21** configured in your Gradle environment
+- **Android Device / Emulator** running SDK 24 (Nougat) or higher
 
 ### ⚙️ Compilation & Build
 
