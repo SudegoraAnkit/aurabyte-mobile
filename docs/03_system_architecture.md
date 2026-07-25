@@ -12,7 +12,7 @@ The core principle of HabitEngine's Hexagonal Architecture is **dependency inver
 
 ```mermaid
 graph TD
-    subgraph Infrastructure Layer (Adapters)
+    subgraph Infrastructure Layer 
         UI[Jetpack Compose UI<br/>DashboardScreen]
         DB[(Room SQLite DB<br/>AppDatabase / DAOs)]
     end
